@@ -1,0 +1,22 @@
+"""Modelo AccesoVivienda: relación N:M entre Usuario y Vivienda."""
+from datetime import date
+
+
+class AccesoVivienda:
+    """Relaciona un usuario con una vivienda y define su rol en ella.
+
+    Un usuario puede tener acceso a varias viviendas (incluso de comunidades
+    distintas) y una vivienda puede tener varios usuarios con acceso.
+    """
+
+    ROLES = ('titular', 'convivente', 'solo_lectura')
+
+    def __init__(self, usuario_oid, vivienda_oid, rol_en_vivienda='titular',
+                 fecha_incorporacion=None):
+        self.usuario_oid = str(usuario_oid)
+        self.vivienda_oid = str(vivienda_oid)
+        self.rol_en_vivienda = rol_en_vivienda
+        self.fecha_incorporacion = fecha_incorporacion or date.today().isoformat()
+
+    def __repr__(self):
+        return f'<AccesoVivienda u={self.usuario_oid} v={self.vivienda_oid} rol={self.rol_en_vivienda}>'
