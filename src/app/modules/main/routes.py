@@ -121,6 +121,14 @@ def index():
         except Exception:
             pass
 
+    # Incidencias abiertas del usuario
+    from app.models.incidencia import Incidencia
+    incidencias_abiertas = [
+        i for i in srp.load_all(Incidencia)
+        if str(i.usuario_oid) == usr_str and i.estado != 'cerrada'
+    ]
+
     return render_template('main/dashboard_usuario.html',
                            viviendas_data=viviendas_data,
-                           ahorro_global=round(ahorro_global, 2))
+                           ahorro_global=round(ahorro_global, 2),
+                           incidencias_abiertas=incidencias_abiertas)

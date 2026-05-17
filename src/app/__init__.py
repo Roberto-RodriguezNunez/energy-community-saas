@@ -115,6 +115,7 @@ def create_app(config_name=None):
     from app.modules.baterias import baterias_bp
     from app.modules.cierres import cierres_bp
     from app.modules.notificaciones import notificaciones_bp
+    from app.modules.incidencias import incidencias_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -125,6 +126,7 @@ def create_app(config_name=None):
     app.register_blueprint(baterias_bp, url_prefix='/baterias')
     app.register_blueprint(cierres_bp, url_prefix='/cierres')
     app.register_blueprint(notificaciones_bp, url_prefix='/notificaciones')
+    app.register_blueprint(incidencias_bp)
 
     # Manejadores de error personalizados
     @app.errorhandler(401)

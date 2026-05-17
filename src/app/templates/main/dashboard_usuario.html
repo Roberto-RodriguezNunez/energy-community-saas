@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_icons.html' import warning %}
 {% block titulo %}Mi panel{% endblock %}
 {% block contenido %}
 
@@ -129,6 +130,47 @@
 <div class="empty-state" style="padding:5rem 1rem;">
   <p>No tienes acceso a ninguna vivienda todavía.<br>
      Contacta con el administrador para que te asigne una.</p>
+</div>
+{% endif %}
+
+{# ── Incidencias abiertas ── #}
+{% if incidencias_abiertas %}
+<div style="margin-top:2.5rem;">
+  <div style="font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+              color:var(--text-muted);margin-bottom:1rem;">Mis incidencias abiertas</div>
+  <div style="display:flex;flex-direction:column;gap:.6rem;">
+    {% for inc in incidencias_abiertas %}
+    <a href="{{ url_for('incidencias.detalle', safe_oid=oid_to_safe(inc.__oid__)) }}"
+       style="display:flex;align-items:center;gap:1rem;
+              background:#fff;border:1px solid #e5e5e5;border-radius:10px;
+              padding:.85rem 1.1rem;text-decoration:none;color:inherit;">
+      <span style="flex-shrink:0;">{{ warning(18) }}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:.9rem;
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          {{ inc.titulo }}
+        </div>
+        <div style="font-size:.78rem;color:var(--text-muted);">{{ inc.fecha_creacion }}</div>
+      </div>
+      {% if inc.estado == 'abierta' %}
+        <span style="flex-shrink:0;padding:.2rem .55rem;border-radius:6px;
+                     font-size:.72rem;font-weight:700;background:#fee2e2;color:#b91c1c;">
+          ABIERTA
+        </span>
+      {% else %}
+        <span style="flex-shrink:0;padding:.2rem .55rem;border-radius:6px;
+                     font-size:.72rem;font-weight:700;background:#fef3c7;color:#92400e;">
+          EN PROCESO
+        </span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  <div style="margin-top:.75rem;text-align:right;">
+    <a href="{{ url_for('incidencias.lista') }}" style="font-size:.84rem;">
+      Ver todas las incidencias →
+    </a>
+  </div>
 </div>
 {% endif %}
 

@@ -47,10 +47,12 @@
           <a href="{{ url_for('comunidades.lista') }}" class="ec-nav-link">Comunidades</a>
           <a href="{{ url_for('viviendas.lista_global') }}" class="ec-nav-link">Viviendas</a>
           <a href="{{ url_for('usuarios.lista') }}" class="ec-nav-link">Usuarios</a>
+          <a href="{{ url_for('incidencias.lista') }}" class="ec-nav-link">Incidencias</a>
 
         {# ── Usuario normal ── #}
         {% else %}
           <a href="{{ url_for('main.index') }}" class="ec-nav-link">Inicio</a>
+          <a href="{{ url_for('incidencias.lista') }}" class="ec-nav-link">Incidencias</a>
           {% set coms_nav = mi_comunidad_nav() %}
           {% if coms_nav|length == 1 %}
             <a href="{{ url_for('comunidades.detalle', safe_oid=coms_nav[0].safe_oid) }}"
