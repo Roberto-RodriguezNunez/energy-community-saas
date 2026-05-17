@@ -26,13 +26,16 @@ def lista():
     if current_user.es_superadmin:
         incidencias = list(srp.load_all(Incidencia))
     else:
-        # Averiguar si el usuario es admin de alguna comunidad
-        # Por ahora distinguimos solo superadmin vs usuario normal.
-        # Usuario normal: solo ve las suyas.
-        incidencias = list(srp.filter(
-            Incidencia,
-            lambda i, _u=usr_str: str(i.usuario_oid) == _u
-        ))
+        # Admin de comunidad: ve las incidencias de sus comunidades + las suyas
+        accesos_admin = [
+            a for a in srp.load_all(AccesoVivienda)
+            if str(a.usuario_oid) == usr_str and a.es_admin_comunidad
+        ]
+        viviendas_admin = {a.vivienda_oid for a in accesos_admin}
+        incidencias = [
+            i for i in srp.load_all(Incidencia)
+            if str(i.usuario_oid) == usr_str or str(i.vivienda_oid) in viviendas_admin
+        ]
 
     # Enriquecer con datos de vivienda para la tabla
     detalle = []
@@ -156,9 +159,17 @@ def detalle(safe_oid):
     if not inc:
         abort(404)
 
-    # Permiso: superadmin ve todo; usuario solo ve las suyas
+    # Permiso: superadmin ve todo; admin ve las de su comunidad; usuario las suyas
     if not current_user.es_superadmin:
-        if str(inc.usuario_oid) != str(current_user.__oid__):
+        usr_str = str(current_user.__oid__)
+        es_propia = str(inc.usuario_oid) == usr_str
+        es_admin_viv = srp.find_first(
+            AccesoVivienda,
+            lambda a, _u=usr_str, _v=inc.vivienda_oid: (
+                str(a.usuario_oid) == _u and str(a.vivienda_oid) == _v and a.es_admin_comunidad
+            )
+        )
+        if not es_propia and not es_admin_viv:
             abort(403)
 
     try:
@@ -181,12 +192,22 @@ def detalle(safe_oid):
 # Responder incidencia (solo admin/superadmin)
 # ---------------------------------------------------------------------------
 
+def _puede_gestionar(srp, inc) -> bool:
+    """True si el usuario actual puede responder/gestionar esta incidencia."""
+    if current_user.es_superadmin:
+        return True
+    usr_str = str(current_user.__oid__)
+    return bool(srp.find_first(
+        AccesoVivienda,
+        lambda a, _u=usr_str, _v=inc.vivienda_oid: (
+            str(a.usuario_oid) == _u and str(a.vivienda_oid) == _v and a.es_admin_comunidad
+        )
+    ))
+
+
 @incidencias_bp.route('/<safe_oid>/responder', methods=['POST'])
 @login_required
 def responder(safe_oid):
-    if not current_user.es_superadmin:
-        abort(403)
-
     srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
@@ -195,6 +216,8 @@ def responder(safe_oid):
     inc = srp.load(oid)
     if not inc:
         abort(404)
+    if not _puede_gestionar(srp, inc):
+        abort(403)
 
     form_respuesta = RespuestaForm(prefix='resp')
     if form_respuesta.validate_on_submit():

@@ -83,10 +83,11 @@ def usuario_tiene_acceso(srp, usuario_oid, vivienda_oid) -> bool:
 def cascade_delete_vivienda(srp, vivienda_oid):
     """Borra una vivienda y todos sus objetos dependientes.
 
-    Cascada: AccesoVivienda → CierreMensual → Vivienda
+    Cascada: AccesoVivienda → CierreMensual → Incidencia → Vivienda
     """
     from app.models.acceso import AccesoVivienda
     from app.models.cierre import CierreMensual
+    from app.models.incidencia import Incidencia
 
     viv_str = str(vivienda_oid)
 
@@ -97,6 +98,10 @@ def cascade_delete_vivienda(srp, vivienda_oid):
     for c in list(srp.load_all(CierreMensual)):
         if str(c.vivienda_oid) == viv_str:
             srp.delete(c.__oid__)
+
+    for i in list(srp.load_all(Incidencia)):
+        if str(i.vivienda_oid) == viv_str:
+            srp.delete(i.__oid__)
 
     srp.delete(vivienda_oid)
 
