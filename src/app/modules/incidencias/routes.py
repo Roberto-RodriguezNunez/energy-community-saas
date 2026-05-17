@@ -29,7 +29,7 @@ def lista():
         # Admin de comunidad: ve las incidencias de sus comunidades + las suyas
         accesos_admin = [
             a for a in srp.load_all(AccesoVivienda)
-            if str(a.usuario_oid) == usr_str and a.es_admin_comunidad
+            if str(a.usuario_oid) == usr_str and getattr(a, 'es_admin_comunidad', False)
         ]
         viviendas_admin = {a.vivienda_oid for a in accesos_admin}
         incidencias = [
@@ -166,7 +166,7 @@ def detalle(safe_oid):
         es_admin_viv = srp.find_first(
             AccesoVivienda,
             lambda a, _u=usr_str, _v=inc.vivienda_oid: (
-                str(a.usuario_oid) == _u and str(a.vivienda_oid) == _v and a.es_admin_comunidad
+                str(a.usuario_oid) == _u and str(a.vivienda_oid) == _v and getattr(a, 'es_admin_comunidad', False)
             )
         )
         if not es_propia and not es_admin_viv:
@@ -200,7 +200,7 @@ def _puede_gestionar(srp, inc) -> bool:
     return bool(srp.find_first(
         AccesoVivienda,
         lambda a, _u=usr_str, _v=inc.vivienda_oid: (
-            str(a.usuario_oid) == _u and str(a.vivienda_oid) == _v and a.es_admin_comunidad
+            str(a.usuario_oid) == _u and str(a.vivienda_oid) == _v and getattr(a, 'es_admin_comunidad', False)
         )
     ))
 
