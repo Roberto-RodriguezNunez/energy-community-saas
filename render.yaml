@@ -19,3 +19,4 @@ services:
     name: lealink-redis
     plan: free
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
