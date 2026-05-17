@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: lealink
+    runtime: docker
+    dockerfilePath: ./src/Dockerfile
+    dockerContext: ./src
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: lealink-redis
+          property: connectionString
+
+  - type: redis
+    name: lealink-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru

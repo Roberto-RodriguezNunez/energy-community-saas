@@ -7,11 +7,23 @@ load_dotenv()
 
 class BaseConfig:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
-    REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
-    REDIS_DB = int(os.environ.get('REDIS_DB', 0))
     WTF_CSRF_ENABLED = True
     WTF_CSRF_HEADERS = ['X-CSRFToken', 'X-CSRF-Token']
+
+    # Render pasa REDIS_URL como redis://host:port — parsearlo si existe
+    _redis_url = os.environ.get('REDIS_URL', '')
+    if _redis_url:
+        import urllib.parse as _up
+        _p = _up.urlparse(_redis_url)
+        REDIS_HOST = _p.hostname or 'localhost'
+        REDIS_PORT = _p.port or 6379
+        REDIS_DB   = int((_p.path or '/0').lstrip('/') or 0)
+        REDIS_PASSWORD = _p.password
+    else:
+        REDIS_HOST     = os.environ.get('REDIS_HOST', 'localhost')
+        REDIS_PORT     = int(os.environ.get('REDIS_PORT', 6379))
+        REDIS_DB       = int(os.environ.get('REDIS_DB', 0))
+        REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', None)
 
 
 class DevelopmentConfig(BaseConfig):

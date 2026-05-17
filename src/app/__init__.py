@@ -20,7 +20,8 @@ def create_app(config_name=None):
     redis_client = redis.Redis(
         host=app.config['REDIS_HOST'],
         port=app.config['REDIS_PORT'],
-        db=app.config['REDIS_DB']
+        db=app.config['REDIS_DB'],
+        password=app.config.get('REDIS_PASSWORD'),
     )
     app.sirope = sirope.Sirope(redis_obj=redis_client)
 
