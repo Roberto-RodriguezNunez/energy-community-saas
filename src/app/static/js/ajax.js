@@ -36,11 +36,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (data.success) {
-          // Eliminar el elemento más cercano con data-removable
-          const removable = form.closest('[data-removable]');
-          if (removable) removable.remove();
+          // Si es "marcar leída": actualizar visualmente sin eliminar el card
+          if (form.dataset.ajaxNotif === 'decrement') {
+            const card = form.closest('[data-removable]');
+            if (card) {
+              card.classList.remove('notif-no-leida');
+              card.querySelectorAll('[data-notif-dot]').forEach(el => el.remove());
+              card.querySelectorAll('[data-notif-btn-leer]').forEach(el => el.remove());
+            }
+          } else {
+            // Eliminar el elemento más cercano con data-removable
+            const removable = form.closest('[data-removable]');
+            if (removable) removable.remove();
+          }
 
           if (data.message) mostrarFlash(data.message, 'success');
+
+          // Actualizar contador de notificaciones en campana si aplica
+          if (form.dataset.ajaxNotif) actualizarCampana(form.dataset.ajaxNotif);
+
+          // Marcar todas leídas: recargar la lista limpiando visualmente
+          if (form.dataset.ajaxMarkAll) {
+            document.querySelectorAll('.notif-no-leida').forEach(el => el.classList.remove('notif-no-leida'));
+            document.querySelectorAll('[data-notif-dot]').forEach(el => el.remove());
+            document.querySelectorAll('[data-notif-btn-leer]').forEach(el => el.remove());
+            actualizarCampana('reset');
+          }
 
           // Redirigir si el servidor lo indica
           if (data.redirect) {
@@ -54,6 +75,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  function actualizarCampana(modo) {
+    const badge = document.querySelector('[data-notif-count]');
+    if (!badge) return;
+    if (modo === 'reset') {
+      badge.textContent = '0';
+      badge.style.display = 'none';
+      return;
+    }
+    const actual = parseInt(badge.textContent || '0', 10);
+    const nuevo = modo === 'decrement' ? Math.max(0, actual - 1) : actual;
+    badge.textContent = String(nuevo);
+    badge.style.display = nuevo > 0 ? '' : 'none';
+  }
 
   function mostrarFlash(mensaje, categoria) {
     let contenedor = document.querySelector('.flash-container');

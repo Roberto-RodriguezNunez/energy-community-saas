@@ -67,9 +67,8 @@
            title="Notificaciones">
           {{ bell(18) }}
           {% set n_no_leidas = contador_no_leidas() %}
-          {% if n_no_leidas > 0 %}
-            <span class="badge-notif">{{ n_no_leidas }}</span>
-          {% endif %}
+          <span class="badge-notif" data-notif-count
+                style="{{ 'display:none' if n_no_leidas == 0 }}">{{ n_no_leidas }}</span>
         </a>
 
         {# ── Menú de usuario ── #}
