@@ -4,6 +4,7 @@ services:
     runtime: docker
     dockerfilePath: ./src/Dockerfile
     dockerContext: ./src
+    plan: free
     envVars:
       - key: FLASK_ENV
         value: production
