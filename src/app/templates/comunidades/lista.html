@@ -30,7 +30,7 @@
     <option value="activa"     {{ 'selected' if estado_filtro=='activa' }}>Activa</option>
     <option value="suspendida" {{ 'selected' if estado_filtro=='suspendida' }}>Suspendida</option>
   </select>
-  <button type="submit" class="secondary" style="white-space:nowrap;">Filtrar</button>
+  <button type="submit" class="secondary" style="white-space:nowrap;">Buscar</button>
   {% if q or estado_filtro %}
   <a href="{{ url_for('comunidades.lista') }}" role="button" class="secondary"
      style="white-space:nowrap;display:inline-flex;align-items:center;gap:.3rem;">{{ x_icon(13) }} Limpiar</a>
@@ -69,16 +69,14 @@
     {# Acciones #}
     <div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0;">
       <a href="{{ url_for('comunidades.editar', safe_oid=oid_to_safe(com.__oid__)) }}"
-         class="secondary" role="button" style="font-size:.82rem;padding:.3rem .7rem;display:inline-flex;align-items:center;gap:.35rem;">
-        {{ edit(13) }} Editar
-      </a>
+         class="btn-icon-sm" title="Editar comunidad">{{ edit(15) }}</a>
       <form method="POST"
             action="{{ url_for('comunidades.eliminar', safe_oid=oid_to_safe(com.__oid__)) }}"
             data-ajax-action="{{ url_for('comunidades.eliminar', safe_oid=oid_to_safe(com.__oid__)) }}"
             style="display:inline;"
             onsubmit="return confirm('¿Eliminar «{{ com.nombre }}» y TODOS sus datos? Esta acción es irreversible.')">
         {{ csrf_token_hidden() }}
-        <button type="submit" class="btn-danger-sm" title="Eliminar comunidad">{{ trash(13) }}</button>
+        <button type="submit" class="btn-danger-sm" title="Eliminar comunidad">{{ trash(12) }}</button>
       </form>
     </div>
   </div>

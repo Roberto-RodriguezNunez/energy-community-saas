@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from '_icons.html' import home, users, trash, calendar, key, x_icon, plus %}
+{% from '_icons.html' import home, users, trash, calendar, key, x_icon, plus, edit %}
 {% block titulo %}{{ usuario.nombre }}{% endblock %}
 {% block contenido %}
 
@@ -78,15 +78,21 @@
             <td style="padding:.8rem 1.1rem;">
               <code style="font-size:.8rem;">{{ item.acceso.fecha_incorporacion }}</code>
             </td>
-            <td style="padding:.8rem 1.1rem;text-align:center;">
-              <form method="POST"
-                    action="{{ url_for('accesos.eliminar', safe_oid=item.acceso_safe_oid) }}"
-                    data-ajax-action="{{ url_for('accesos.eliminar', safe_oid=item.acceso_safe_oid) }}"
-                    style="display:inline;"
-                    onsubmit="return confirm('¿Quitar acceso a esta vivienda?')">
-                {{ csrf_token_hidden() }}
-                <button type="submit" class="btn-danger-sm" title="Quitar acceso">{{ x_icon(13) }}</button>
-              </form>
+            <td style="padding:.8rem 1.1rem;">
+              <div style="display:flex;align-items:center;gap:.4rem;justify-content:center;">
+                {% if item.vivienda %}
+                <a href="{{ url_for('viviendas.editar', safe_oid=oid_to_safe(item.vivienda.__oid__)) }}"
+                   class="btn-icon-sm" title="Editar vivienda">{{ edit(15) }}</a>
+                {% endif %}
+                <form method="POST"
+                      action="{{ url_for('accesos.eliminar', safe_oid=item.acceso_safe_oid) }}"
+                      data-ajax-action="{{ url_for('accesos.eliminar', safe_oid=item.acceso_safe_oid) }}"
+                      style="display:inline;"
+                      onsubmit="return confirm('¿Quitar acceso a esta vivienda?')">
+                  {{ csrf_token_hidden() }}
+                  <button type="submit" class="btn-danger-sm" title="Quitar acceso">{{ trash(12) }}</button>
+                </form>
+              </div>
             </td>
           </tr>
           {% endfor %}
@@ -138,6 +144,24 @@
     <div class="empty-state" style="padding:3rem 1rem;">
       <div class="empty-icon">{{ home(36) }}</div>
       <p style="font-size:.9rem;">No hay viviendas disponibles para asignar.</p>
+    </div>
+    {% endif %}
+
+    {% if comunidades %}
+    <div style="margin-top:1rem;padding:1rem 1.4rem;background:var(--surface);
+                border:1px solid var(--border);border-radius:var(--radius-lg);
+                box-shadow:var(--shadow-sm);">
+      <p style="font-size:.85rem;color:var(--text-muted);margin:0 0 .6rem;">
+        O crea una vivienda nueva en una comunidad:
+      </p>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        {% for com in comunidades %}
+        <a href="{{ url_for('viviendas.nueva', comunidad_safe_oid=oid_to_safe(com.__oid__)) }}"
+           role="button" class="outline" style="font-size:.82rem;padding:.4rem .9rem;">
+          {{ plus(12) }} {{ com.nombre }}
+        </a>
+        {% endfor %}
+      </div>
     </div>
     {% endif %}
   </div>

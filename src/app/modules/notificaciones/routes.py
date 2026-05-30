@@ -3,8 +3,11 @@ from flask import render_template, redirect, url_for, request, abort, jsonify, c
 from flask_login import login_required, current_user
 
 from app.modules.notificaciones import notificaciones_bp
+from app.modules.notificaciones.forms import NotificacionForm
 from app.models.notificacion import Notificacion
-from app.helpers import oid_from_safe, flash_exito, flash_error, is_xhr
+from app.models.usuario import Usuario
+from app.helpers import oid_from_safe, oid_to_safe, flash_exito, flash_error, is_xhr, crear_notificacion
+from app.decorators import superadmin_required
 
 
 @notificaciones_bp.route('/')
@@ -83,3 +86,41 @@ def eliminar(safe_oid):
     if is_xhr():
         return jsonify({'success': True})
     return redirect(url_for('notificaciones.lista'))
+
+
+@notificaciones_bp.route('/nueva', methods=['GET', 'POST'])
+@login_required
+@superadmin_required
+def nueva():
+    srp = current_app.sirope
+    form = NotificacionForm()
+
+    # Construir opciones de destinatario
+    usuarios = list(srp.load_all(Usuario))
+    opciones = [('__todos__', 'Todos los usuarios')]
+    for u in sorted(usuarios, key=lambda u: u.nombre):
+        opciones.append((oid_to_safe(u.__oid__), f'{u.nombre} ({u.email})'))
+    form.destinatario.choices = opciones
+
+    if form.validate_on_submit():
+        titulo = form.titulo.data.strip()
+        mensaje = form.mensaje.data.strip()
+        dest = form.destinatario.data
+
+        if dest == '__todos__':
+            for u in usuarios:
+                crear_notificacion(srp, u.__oid__, 'general', titulo, mensaje)
+            flash_exito(f'Notificación enviada a {len(usuarios)} usuarios.')
+        else:
+            try:
+                usr_oid = oid_from_safe(dest)
+            except Exception:
+                flash_error('Usuario no válido.')
+                return render_template('notificaciones/form.html', form=form)
+            crear_notificacion(srp, usr_oid, 'general', titulo, mensaje)
+            usr = srp.load(usr_oid)
+            flash_exito(f'Notificación enviada a {usr.nombre if usr else "usuario"}.')
+
+        return redirect(url_for('notificaciones.lista'))
+
+    return render_template('notificaciones/form.html', form=form)

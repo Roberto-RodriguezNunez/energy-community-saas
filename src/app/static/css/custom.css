@@ -37,8 +37,10 @@
 
   /* Aliases de compatibilidad con templates */
   --surface-2:  var(--surface-s);
+  --navy:       #1a1a2e;
   --navy-deep:  var(--text);
-  --navy-light: var(--green);
+  --navy-light: #2A5298;
+  --teal:       #18a070;
 
   /* Pico overrides */
   --pico-font-family:       'Inter', system-ui, -apple-system, sans-serif;
@@ -621,13 +623,70 @@ button.secondary:hover {
   color: #d93025;
   border: none;
   cursor: pointer;
-  font-size: .95rem;
-  padding: .2rem .45rem;
+  padding: .3rem .5rem;
   border-radius: 5px;
   transition: background var(--transition);
   line-height: 1;
 }
 .btn-danger-sm:hover { background: rgba(220,38,38,.08); }
+
+/* Icono inline (editar, accesos) */
+.btn-icon-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  padding: .3rem .5rem;
+  border-radius: 5px;
+  transition: background var(--transition), color var(--transition);
+  line-height: 1;
+  text-decoration: none;
+}
+.btn-icon-sm:hover { background: rgba(0,0,0,.06); color: var(--navy); }
+
+/* Toggle switch (interruptor deslizante) */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #ccc;
+  border-radius: 24px;
+  transition: background .25s ease;
+  cursor: pointer;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .25s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--green);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
 
 /* ============================================================
    BADGES

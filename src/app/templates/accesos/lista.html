@@ -67,7 +67,7 @@
             style="display:inline;"
             onsubmit="return confirm('¿Eliminar acceso de {{ item.usuario.nombre if item.usuario else 'este usuario' }}?')">
         {{ csrf_token_hidden() }}
-        <button type="submit" class="btn-danger-sm" title="Eliminar acceso">{{ trash(13) }}</button>
+        <button type="submit" class="btn-danger-sm" title="Eliminar acceso">{{ trash(12) }}</button>
       </form>
     </div>
   </div>

@@ -11,8 +11,6 @@ class ViviendaForm(FlaskForm):
     cups = StringField('CUPS', validators=[Optional(), Length(max=30)])
     potencia_contratada_kw = FloatField('Potencia contratada (kW)',
                                         validators=[DataRequired(), NumberRange(min=0)])
-    coeficiente_reparto = FloatField('Coeficiente de reparto (0-1)',
-                                     validators=[DataRequired(), NumberRange(min=0, max=1)])
     fecha_alta = DateField('Fecha de alta', validators=[DataRequired()])
     tiene_paneles = BooleanField('Tiene paneles solares')
     potencia_pico_paneles_kwp = FloatField('Potencia pico paneles (kWp)',

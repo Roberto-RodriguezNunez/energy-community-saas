@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from '_icons.html' import home, sun, battery, edit %}
+{% from '_icons.html' import home, sun, battery, edit, trash, users %}
 {% block titulo %}{{ com.nombre }}{% endblock %}
 {% block contenido %}
 
@@ -131,8 +131,20 @@
           </td>
           {% if es_admin %}
           <td>
-            <a href="{{ url_for('viviendas.editar', safe_oid=oid_to_safe(v.__oid__)) }}"
-               style="color:var(--text-muted);font-size:.9rem;">{{ edit(14) }}</a>
+            <div style="display:flex;align-items:center;gap:.4rem;">
+              <a href="{{ url_for('viviendas.editar', safe_oid=oid_to_safe(v.__oid__)) }}"
+                 class="btn-icon-sm" title="Editar">{{ edit(15) }}</a>
+              <a href="{{ url_for('accesos.lista', vivienda_safe_oid=oid_to_safe(v.__oid__)) }}"
+                 class="btn-icon-sm" title="Accesos">{{ users(15) }}</a>
+              <form method="POST"
+                    action="{{ url_for('viviendas.eliminar', safe_oid=oid_to_safe(v.__oid__)) }}"
+                    data-ajax-action="{{ url_for('viviendas.eliminar', safe_oid=oid_to_safe(v.__oid__)) }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('¿Eliminar vivienda «{{ v.identificador }}» y sus datos?')">
+                {{ csrf_token_hidden() }}
+                <button type="submit" class="btn-danger-sm" title="Eliminar">{{ trash(12) }}</button>
+              </form>
+            </div>
           </td>
           {% endif %}
         </tr>

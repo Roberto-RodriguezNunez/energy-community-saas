@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from '_icons.html' import home, sun, edit, users, trash, plus, map_pin %}
+{% from '_icons.html' import home, sun, edit, users, trash, plus, map_pin, search %}
 {% block titulo %}Viviendas{% endblock %}
 {% block contenido %}
 
@@ -8,16 +8,20 @@
     <h2 style="margin:0 0 .25rem;font-size:1.5rem;font-weight:800;letter-spacing:-.04em;">Viviendas</h2>
     <p style="color:var(--text-muted);margin:0;font-size:.92rem;">{{ total }} vivienda{{ 's' if total != 1 }} en {{ grupos|length }} comunidad{{ 'es' if grupos|length != 1 }}</p>
   </div>
-  <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
-    <input id="viv-search" type="search" placeholder="Buscar vivienda…"
-           style="width:220px;margin:0;" oninput="aplicarFiltros()">
-    <select id="fil-comunidad" style="width:200px;margin:0;" onchange="aplicarFiltros()">
+  <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1.5rem;">
+    <div style="flex:1;min-width:180px;position:relative;">
+      <span style="position:absolute;left:.9rem;top:50%;transform:translateY(-50%);
+                   color:var(--text-muted);pointer-events:none;">{{ search(15) }}</span>
+      <input id="viv-search" type="search" placeholder="Buscar vivienda…"
+             style="padding-left:2.5rem;width:100%;margin:0;" oninput="aplicarFiltros()">
+    </div>
+    <select id="fil-comunidad" style="min-width:200px;margin:0;" onchange="aplicarFiltros()">
       <option value="">Todas las comunidades</option>
       {% for g in grupos %}{% if g.com %}
       <option value="{{ g.com.nombre }}">{{ g.com.nombre }}</option>
       {% endif %}{% endfor %}
     </select>
-    <select id="fil-paneles" style="width:180px;margin:0;" onchange="aplicarFiltros()">
+    <select id="fil-paneles" style="min-width:180px;margin:0;" onchange="aplicarFiltros()">
       <option value="">Todos los paneles</option>
       <option value="con">Con paneles</option>
       <option value="sin">Sin paneles</option>
@@ -79,22 +83,16 @@
             <td>
               <div style="display:flex;align-items:center;gap:.3rem;justify-content:flex-end;">
                 <a href="{{ url_for('viviendas.editar', safe_oid=v_safe) }}"
-                   style="display:inline-flex;align-items:center;font-size:.82rem;
-                          color:var(--text-muted);padding:.25rem .45rem;border-radius:6px;
-                          border:1px solid #e5e5e5;text-decoration:none;"
-                   title="Editar">{{ edit(13) }}</a>
+                   class="btn-icon-sm" title="Editar">{{ edit(15) }}</a>
                 <a href="{{ url_for('accesos.lista', vivienda_safe_oid=v_safe) }}"
-                   style="display:inline-flex;align-items:center;font-size:.82rem;
-                          color:var(--text-muted);padding:.25rem .45rem;border-radius:6px;
-                          border:1px solid #e5e5e5;text-decoration:none;"
-                   title="Accesos">{{ users(13) }}</a>
+                   class="btn-icon-sm" title="Accesos">{{ users(15) }}</a>
                 <form method="POST"
                       action="{{ url_for('viviendas.eliminar', safe_oid=v_safe) }}"
                       data-ajax-action="{{ url_for('viviendas.eliminar', safe_oid=v_safe) }}"
                       style="margin:0;"
                       onsubmit="return confirm('¿Eliminar vivienda «{{ v.identificador }}» y sus datos?')">
                   {{ csrf_token_hidden() }}
-                  <button type="submit" class="btn-danger-sm" title="Eliminar">{{ trash(13) }}</button>
+                  <button type="submit" class="btn-danger-sm" title="Eliminar">{{ trash(12) }}</button>
                 </form>
               </div>
             </td>

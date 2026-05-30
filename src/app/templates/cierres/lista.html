@@ -31,7 +31,7 @@
     <input name="mes" type="text" placeholder="Filtrar por mes (ej: 2024-01)"
            value="{{ mes_filtro }}" style="padding-left:2.5rem;width:100%;">
   </div>
-  <button type="submit" class="secondary">Filtrar</button>
+  <button type="submit" class="secondary">Buscar</button>
   {% if mes_filtro %}
   <a href="{{ url_for('cierres.lista', vivienda_safe_oid=vivienda_safe_oid) }}"
      role="button" class="secondary">{{ x_icon(13) }}</a>
@@ -81,7 +81,7 @@
                   data-ajax-action="{{ url_for('cierres.eliminar', safe_oid=oid_to_safe(c.__oid__)) }}"
                   style="display:inline;" onsubmit="return confirm('¿Eliminar cierre {{ c.mes }}?')">
               {{ csrf_token_hidden() }}
-              <button type="submit" class="btn-danger-sm" title="Eliminar">{{ trash(13) }}</button>
+              <button type="submit" class="btn-danger-sm" title="Eliminar">{{ trash(12) }}</button>
             </form>
             {% endif %}
           </div>

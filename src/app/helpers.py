@@ -77,6 +77,47 @@ def usuario_tiene_acceso(srp, usuario_oid, vivienda_oid) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Recálculo de coeficientes de reparto
+# ---------------------------------------------------------------------------
+
+def recalcular_coeficientes(srp, comunidad_oid):
+    """Recalcula los coeficientes de reparto de todas las viviendas de una
+    comunidad, proporcionales a su potencia contratada.
+
+    coef_i = potencia_i / suma_potencias
+    """
+    from app.models.vivienda import Vivienda
+
+    from app.models.acceso import AccesoVivienda
+
+    com_str = str(comunidad_oid)
+    viviendas = [v for v in srp.load_all(Vivienda) if str(v.comunidad_oid) == com_str]
+    if not viviendas:
+        return
+    suma = sum(v.potencia_contratada_kw for v in viviendas)
+    if suma <= 0:
+        return
+
+    accesos = list(srp.load_all(AccesoVivienda))
+
+    for v in viviendas:
+        nuevo = round(v.potencia_contratada_kw / suma, 6)
+        cambio = v.coeficiente_reparto != nuevo
+        v.coeficiente_reparto = nuevo
+        srp.save(v)
+
+        if cambio:
+            viv_str = str(v.__oid__)
+            usuarios = {str(a.usuario_oid) for a in accesos if str(a.vivienda_oid) == viv_str}
+            for usr_oid_str in usuarios:
+                crear_notificacion(
+                    srp, usr_oid_str, 'cambio_coeficiente',
+                    f'Coeficiente actualizado — {v.identificador}',
+                    f'Tu coeficiente de reparto en {v.identificador} ha cambiado a {nuevo:.4f}.',
+                )
+
+
+# ---------------------------------------------------------------------------
 # Borrado en cascada
 # ---------------------------------------------------------------------------
 

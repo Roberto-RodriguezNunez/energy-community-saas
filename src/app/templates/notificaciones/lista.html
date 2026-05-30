@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from '_icons.html' import check, bar_chart, battery, warning, info, trash, bell %}
+{% from '_icons.html' import check, bar_chart, battery, warning, info, trash, bell, plus %}
 {% block titulo %}Notificaciones{% endblock %}
 {% block contenido %}
 
@@ -15,6 +15,13 @@
       {% endif %}
     </p>
   </div>
+  <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+  {% if current_user.es_superadmin %}
+  <a href="{{ url_for('notificaciones.nueva') }}" role="button"
+     style="font-size:.85rem;display:inline-flex;align-items:center;gap:.35rem;white-space:nowrap;">
+    {{ plus(14) }} Enviar notificación
+  </a>
+  {% endif %}
   {% if notificaciones %}
   <form method="POST" action="{{ url_for('notificaciones.marcar_todas_leidas') }}"
         data-ajax-action="{{ url_for('notificaciones.marcar_todas_leidas') }}"
@@ -25,6 +32,7 @@
     </button>
   </form>
   {% endif %}
+  </div>
 </div>
 
 {% if notificaciones %}

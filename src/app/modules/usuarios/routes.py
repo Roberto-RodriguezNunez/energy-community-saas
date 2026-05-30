@@ -7,6 +7,7 @@ from datetime import date
 from app.modules.usuarios import usuarios_bp
 from app.models.usuario import Usuario
 from app.models.vivienda import Vivienda
+from app.models.comunidad import Comunidad
 from app.models.acceso import AccesoVivienda
 from app.helpers import (oid_from_safe, oid_to_safe, flash_exito, flash_error,
                           is_xhr, puede_borrar_usuario)
@@ -62,11 +63,15 @@ def detalle(safe_oid):
         if str(v.__oid__) not in viv_ya_asignadas
     ]
 
+    # Comunidades disponibles para crear vivienda nueva
+    comunidades = list(srp.load_all(Comunidad))
+
     return render_template('usuarios/detalle.html',
                            usuario=usuario,
                            safe_oid=safe_oid,
                            accesos_detalle=accesos_detalle,
-                           viviendas_disponibles=viviendas_disponibles)
+                           viviendas_disponibles=viviendas_disponibles,
+                           comunidades=comunidades)
 
 
 @usuarios_bp.route('/<safe_oid>/asignar-vivienda', methods=['POST'])

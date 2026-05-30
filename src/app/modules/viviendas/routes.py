@@ -10,8 +10,9 @@ from app.modules.viviendas.forms import ViviendaForm
 from app.models.vivienda import Vivienda
 from app.models.comunidad import Comunidad
 from app.models.cierre import CierreMensual
-from app.helpers import (oid_from_safe, flash_exito, flash_error,
-                          is_xhr, cascade_delete_vivienda, usuario_tiene_acceso)
+from app.helpers import (oid_from_safe, oid_to_safe, flash_exito, flash_error,
+                          is_xhr, cascade_delete_vivienda, usuario_tiene_acceso,
+                          recalcular_coeficientes)
 from app.decorators import superadmin_required
 
 
@@ -120,7 +121,7 @@ def nueva(comunidad_safe_oid):
             direccion_completa=form.direccion_completa.data or '',
             cups=form.cups.data or '',
             potencia_contratada_kw=form.potencia_contratada_kw.data,
-            coeficiente_reparto=form.coeficiente_reparto.data,
+            coeficiente_reparto=0.0,
             fecha_alta=form.fecha_alta.data.isoformat(),
             tiene_paneles=form.tiene_paneles.data,
             potencia_pico_paneles_kwp=form.potencia_pico_paneles_kwp.data if form.tiene_paneles.data else None,
@@ -129,7 +130,8 @@ def nueva(comunidad_safe_oid):
             orientacion_paneles=form.orientacion_paneles.data if form.tiene_paneles.data else None
         )
         srp.save(viv)
-        flash_exito(f'Vivienda "{viv.identificador}" creada.')
+        recalcular_coeficientes(srp, com_oid)
+        flash_exito(f'Vivienda "{viv.identificador}" creada. Coeficientes recalculados.')
         return redirect(url_for('comunidades.detalle', safe_oid=comunidad_safe_oid))
     return render_template('viviendas/form.html', form=form,
                            titulo='Nueva vivienda', com=com,
@@ -145,7 +147,6 @@ def detalle(safe_oid):
 
     com_oid = OID.from_text(viv.comunidad_oid)
     com = srp.load(com_oid)
-    from app.helpers import oid_to_safe
     com_safe_oid = oid_to_safe(com_oid)
 
     viv_str = str(oid)
@@ -267,11 +268,11 @@ def editar(safe_oid):
             return render_template('viviendas/form.html', form=form,
                                    titulo='Editar vivienda', com=com,
                                    safe_oid=safe_oid, comunidad_safe_oid=comunidad_safe_oid)
+        potencia_cambio = viv.potencia_contratada_kw != form.potencia_contratada_kw.data
         viv.identificador = form.identificador.data
         viv.direccion_completa = form.direccion_completa.data or ''
         viv.cups = form.cups.data or ''
         viv.potencia_contratada_kw = form.potencia_contratada_kw.data
-        viv.coeficiente_reparto = form.coeficiente_reparto.data
         viv.fecha_alta = form.fecha_alta.data.isoformat()
         viv.tiene_paneles = form.tiene_paneles.data
         if viv.tiene_paneles:
@@ -285,6 +286,8 @@ def editar(safe_oid):
             viv.fecha_instalacion_paneles = None
             viv.orientacion_paneles = None
         srp.save(viv)
+        if potencia_cambio:
+            recalcular_coeficientes(srp, com_oid)
         flash_exito(f'Vivienda "{viv.identificador}" actualizada.')
         return redirect(url_for('viviendas.detalle', safe_oid=safe_oid))
     return render_template('viviendas/form.html', form=form,
@@ -309,11 +312,12 @@ def eliminar(safe_oid):
             return jsonify({'success': False, 'error': 'No encontrada'}), 404
         abort(404)
 
-    from app.helpers import oid_to_safe
-    com_safe_oid = oid_to_safe(OID.from_text(viv.comunidad_oid))
+    com_oid_obj = OID.from_text(viv.comunidad_oid)
+    com_safe_oid = oid_to_safe(com_oid_obj)
     nombre = viv.identificador
     cascade_delete_vivienda(srp, oid)
-    flash_exito(f'Vivienda "{nombre}" y sus datos han sido eliminados.')
+    recalcular_coeficientes(srp, com_oid_obj)
+    flash_exito(f'Vivienda "{nombre}" eliminada. Coeficientes recalculados.')
     if is_xhr():
         return jsonify({'success': True, 'redirect': url_for('comunidades.detalle', safe_oid=com_safe_oid)})
     return redirect(url_for('comunidades.detalle', safe_oid=com_safe_oid))

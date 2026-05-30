@@ -60,16 +60,16 @@
         <td style="padding:.9rem 1.2rem;">
           <div style="display:flex;align-items:center;gap:.4rem;">
             <a href="{{ url_for('viviendas.editar', safe_oid=oid_to_safe(v.__oid__)) }}"
-               title="Editar" style="color:var(--text-muted);font-size:.9rem;">{{ edit(14) }}</a>
+               class="btn-icon-sm" title="Editar">{{ edit(15) }}</a>
             <a href="{{ url_for('accesos.lista', vivienda_safe_oid=oid_to_safe(v.__oid__)) }}"
-               title="Accesos" style="color:var(--text-muted);font-size:.9rem;">{{ users(14) }}</a>
+               class="btn-icon-sm" title="Accesos">{{ users(15) }}</a>
             <form method="POST"
                   action="{{ url_for('viviendas.eliminar', safe_oid=oid_to_safe(v.__oid__)) }}"
                   data-ajax-action="{{ url_for('viviendas.eliminar', safe_oid=oid_to_safe(v.__oid__)) }}"
                   style="display:inline;"
                   onsubmit="return confirm('¿Eliminar vivienda «{{ v.identificador }}» y sus datos?')">
               {{ csrf_token_hidden() }}
-              <button type="submit" class="btn-danger-sm" title="Eliminar">{{ trash(13) }}</button>
+              <button type="submit" class="btn-danger-sm" title="Eliminar">{{ trash(12) }}</button>
             </form>
           </div>
         </td>

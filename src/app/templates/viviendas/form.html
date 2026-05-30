@@ -56,13 +56,6 @@
           </div>
           <div>
             <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
-                          display:block;margin-bottom:.4rem;">{{ form.coeficiente_reparto.label.text }}</label>
-            {{ form.coeficiente_reparto(placeholder='0.000 – 1.000',
-                                        **({'aria-invalid':'true'} if form.coeficiente_reparto.errors else {})) }}
-            {% for e in form.coeficiente_reparto.errors %}<small class="form-error">{{ e }}</small>{% endfor %}
-          </div>
-          <div>
-            <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
                           display:block;margin-bottom:.4rem;">{{ form.fecha_alta.label.text }}</label>
             {{ form.fecha_alta(type='date') }}
           </div>
@@ -81,33 +74,40 @@
         <h3 style="margin:0;font-size:.95rem;">Instalación fotovoltaica</h3>
       </div>
       <div style="padding:1.4rem;">
-        <label style="display:flex;align-items:center;gap:.6rem;
-                       cursor:pointer;font-size:.95rem;margin-bottom:1rem;">
-          {{ form.tiene_paneles(id='tiene_paneles') }}
-          <span>{{ form.tiene_paneles.label.text }}</span>
+        <label for="tiene_paneles" style="display:flex;align-items:center;gap:.85rem;
+                       cursor:pointer;margin-bottom:1rem;user-select:none;">
+          <span style="font-size:.93rem;font-weight:600;color:var(--text-soft);">¿Tiene paneles solares?</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="tiene_paneles" name="tiene_paneles" value="y"
+                   {{ 'checked' if form.tiene_paneles.data }}>
+            <span class="toggle-slider"></span>
+          </span>
+          <span id="panel-label" style="font-size:.85rem;font-weight:700;min-width:1.5rem;"></span>
         </label>
 
-        <div id="panel-fields" style="display:none;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-            <div>
-              <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
-                            display:block;margin-bottom:.4rem;">{{ form.potencia_pico_paneles_kwp.label.text }}</label>
-              {{ form.potencia_pico_paneles_kwp() }}
-            </div>
-            <div>
-              <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
-                            display:block;margin-bottom:.4rem;">{{ form.numero_paneles.label.text }}</label>
-              {{ form.numero_paneles() }}
-            </div>
-            <div>
-              <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
-                            display:block;margin-bottom:.4rem;">{{ form.fecha_instalacion_paneles.label.text }}</label>
-              {{ form.fecha_instalacion_paneles(type='date') }}
-            </div>
-            <div>
-              <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
-                            display:block;margin-bottom:.4rem;">{{ form.orientacion_paneles.label.text }}</label>
-              {{ form.orientacion_paneles() }}
+        <div id="panel-fields" style="overflow:hidden;transition:max-height .3s ease, opacity .3s ease;">
+          <div style="border-top:1px solid var(--border);padding-top:1rem;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+              <div>
+                <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
+                              display:block;margin-bottom:.4rem;">{{ form.potencia_pico_paneles_kwp.label.text }}</label>
+                {{ form.potencia_pico_paneles_kwp() }}
+              </div>
+              <div>
+                <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
+                              display:block;margin-bottom:.4rem;">{{ form.numero_paneles.label.text }}</label>
+                {{ form.numero_paneles() }}
+              </div>
+              <div>
+                <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
+                              display:block;margin-bottom:.4rem;">{{ form.fecha_instalacion_paneles.label.text }}</label>
+                {{ form.fecha_instalacion_paneles(type='date') }}
+              </div>
+              <div>
+                <label style="font-size:.83rem;font-weight:600;color:var(--text-soft);
+                              display:block;margin-bottom:.4rem;">{{ form.orientacion_paneles.label.text }}</label>
+                {{ form.orientacion_paneles() }}
+              </div>
             </div>
           </div>
         </div>
@@ -127,8 +127,23 @@
 <script>
   const chk = document.getElementById('tiene_paneles');
   const pnl = document.getElementById('panel-fields');
-  function toggle() { pnl.style.display = chk.checked ? '' : 'none'; }
-  chk.addEventListener('change', toggle);
-  toggle();
+  const lbl = document.getElementById('panel-label');
+
+  function toggle(animate) {
+    if (chk.checked) {
+      lbl.textContent = 'Sí';
+      lbl.style.color = 'var(--green)';
+      pnl.style.maxHeight = pnl.scrollHeight + 'px';
+      pnl.style.opacity = '1';
+    } else {
+      lbl.textContent = 'No';
+      lbl.style.color = 'var(--text-muted)';
+      pnl.style.maxHeight = '0';
+      pnl.style.opacity = '0';
+    }
+  }
+
+  chk.addEventListener('change', function() { toggle(true); });
+  toggle(false);
 </script>
 {% endblock %}
