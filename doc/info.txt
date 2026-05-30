@@ -1,7 +1,7 @@
 Título: EnergyComm — Plataforma SaaS de gestión de comunidades energéticas
-URL repositorio: REEMPLAZAR-CON-URL-REPO
+URL repositorio: https://github.com/Roberto-RodriguezNunez/energy-community-saas
 Apellidos y nombre: Rodríguez Núñez, Roberto
-DNI: REEMPLAZAR-CON-DNI
+DNI: 53975479E
 Asignatura: Aplicaciones Web (ALS)
 Curso: 2025/2026
 Profesor: Baltasar García Pérez-Schofield
