@@ -51,14 +51,6 @@ def flash_error(mensaje: str):
     flash(mensaje, 'danger')
 
 
-def flash_aviso(mensaje: str):
-    flash(mensaje, 'warning')
-
-
-def flash_info(mensaje: str):
-    flash(mensaje, 'info')
-
-
 # ---------------------------------------------------------------------------
 # Comprobaciones de permisos
 # ---------------------------------------------------------------------------

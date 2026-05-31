@@ -57,7 +57,6 @@ def registro():
 @auth_bp.route('/perfil', methods=['GET', 'POST'])
 @login_required
 def perfil():
-    form_perfil_cls = type('PerfilForm', (), {})  # no usado directamente
     from app.modules.usuarios.forms import PerfilForm
     form = PerfilForm(obj=current_user)
     if form.validate_on_submit():
