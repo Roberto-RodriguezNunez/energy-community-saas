@@ -4,10 +4,10 @@ from tests.conftest import login_superadmin, login_usuario
 
 
 class TestIndex:
-    def test_redirige_a_login_sin_sesion(self, client):
+    def test_landing_sin_sesion(self, client):
         resp = client.get('/')
-        assert resp.status_code == 302
-        assert '/login' in resp.headers['Location']
+        assert resp.status_code == 200
+        assert b'LeaLink' in resp.data
 
     def test_dashboard_superadmin(self, client, superadmin):
         login_superadmin(client, superadmin)

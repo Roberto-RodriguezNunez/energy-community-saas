@@ -1,7 +1,7 @@
 """Rutas del panel principal (dashboard) según rol del usuario."""
 import json
 from collections import defaultdict
-from flask import render_template, redirect, url_for, current_app
+from flask import render_template, current_app
 from flask_login import login_required, current_user
 
 from app.modules.main import main_bp
@@ -17,7 +17,7 @@ from app.helpers import oid_to_safe
 @main_bp.route('/')
 def index():
     if not current_user.is_authenticated:
-        return redirect(url_for('auth.login'))
+        return render_template('main/landing.html')
 
     srp = current_app.sirope
 
