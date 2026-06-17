@@ -4,29 +4,29 @@ Importado por todos los blueprints — mantener sin imports circulares.
 """
 from flask import flash, request as _request
 
+from app.extensions import db
+
 
 # ---------------------------------------------------------------------------
-# OIDs URL-safe
+# IDs URL-safe
+#
+# Tras la migración a PostgreSQL, los identificadores son enteros (PK). Se
+# conservan estas funciones (y el atributo `__oid__` de los modelos) para no
+# tener que reescribir rutas ni plantillas: el "safe oid" es simplemente el id
+# en texto.
 # ---------------------------------------------------------------------------
 
 def oid_to_safe(oid) -> str:
-    """Convierte un OID de Sirope a string apto para rutas Flask.
+    """Convierte un id de modelo a string apto para rutas Flask."""
+    return str(oid)
 
-    El formato nativo de Sirope es "namespace.Clase@numero", con puntos y @
-    que no son seguros en URLs. Los sustituimos por marcadores únicos.
+
+def oid_from_safe(safe: str) -> int:
+    """Reconstruye un id entero desde un string de URL.
+
+    Lanza ValueError si el formato es inválido (las rutas lo capturan → 404).
     """
-    return str(oid).replace('.', '-dot-').replace('@', '-at-')
-
-
-def oid_from_safe(safe: str):
-    """Reconstruye un OID de Sirope desde un string URL-safe.
-
-    Invierte la transformación de oid_to_safe y usa OID.from_text().
-    Lanza ValueError si el formato es inválido.
-    """
-    from sirope import OID
-    texto = safe.replace('-dot-', '.').replace('-at-', '@')
-    return OID.from_text(texto)
+    return int(safe)
 
 
 # ---------------------------------------------------------------------------
@@ -55,65 +55,58 @@ def flash_error(mensaje: str):
 # Comprobaciones de permisos
 # ---------------------------------------------------------------------------
 
-def usuario_tiene_acceso(srp, usuario_oid, vivienda_oid) -> bool:
+def usuario_tiene_acceso(usuario_oid, vivienda_oid) -> bool:
     """Comprueba si el usuario tiene algún acceso a la vivienda."""
     from app.models.acceso import AccesoVivienda
 
-    usr_str = str(usuario_oid)
-    viv_str = str(vivienda_oid)
-    acceso = srp.find_first(
-        AccesoVivienda,
-        lambda a: str(a.usuario_oid) == usr_str and str(a.vivienda_oid) == viv_str
-    )
-    return acceso is not None
+    return AccesoVivienda.query.filter_by(
+        usuario_oid=int(usuario_oid), vivienda_oid=int(vivienda_oid)
+    ).first() is not None
 
 
 # ---------------------------------------------------------------------------
 # Recálculo de coeficientes de reparto
 # ---------------------------------------------------------------------------
 
-def recalcular_coeficientes(srp, comunidad_oid):
+def recalcular_coeficientes(comunidad_oid):
     """Recalcula los coeficientes de reparto de todas las viviendas de una
     comunidad, proporcionales a su potencia contratada.
 
     coef_i = potencia_i / suma_potencias
     """
     from app.models.vivienda import Vivienda
-
     from app.models.acceso import AccesoVivienda
 
-    com_str = str(comunidad_oid)
-    viviendas = [v for v in srp.load_all(Vivienda) if str(v.comunidad_oid) == com_str]
+    com_id = int(comunidad_oid)
+    viviendas = Vivienda.query.filter_by(comunidad_oid=com_id).all()
     if not viviendas:
         return
     suma = sum(v.potencia_contratada_kw for v in viviendas)
     if suma <= 0:
         return
 
-    accesos = list(srp.load_all(AccesoVivienda))
-
     for v in viviendas:
         nuevo = round(v.potencia_contratada_kw / suma, 6)
         cambio = v.coeficiente_reparto != nuevo
         v.coeficiente_reparto = nuevo
-        srp.save(v)
 
         if cambio:
-            viv_str = str(v.__oid__)
-            usuarios = {str(a.usuario_oid) for a in accesos if str(a.vivienda_oid) == viv_str}
-            for usr_oid_str in usuarios:
+            accesos = AccesoVivienda.query.filter_by(vivienda_oid=v.id).all()
+            usuarios = {a.usuario_oid for a in accesos}
+            for usr_oid in usuarios:
                 crear_notificacion(
-                    srp, usr_oid_str, 'cambio_coeficiente',
+                    usr_oid, 'cambio_coeficiente',
                     f'Coeficiente actualizado — {v.identificador}',
                     f'Tu coeficiente de reparto en {v.identificador} ha cambiado a {nuevo:.4f}.',
                 )
+    db.session.commit()
 
 
 # ---------------------------------------------------------------------------
 # Borrado en cascada
 # ---------------------------------------------------------------------------
 
-def cascade_delete_vivienda(srp, vivienda_oid):
+def cascade_delete_vivienda(vivienda_oid):
     """Borra una vivienda y todos sus objetos dependientes.
 
     Cascada: AccesoVivienda → CierreMensual → Incidencia → Vivienda
@@ -121,25 +114,21 @@ def cascade_delete_vivienda(srp, vivienda_oid):
     from app.models.acceso import AccesoVivienda
     from app.models.cierre import CierreMensual
     from app.models.incidencia import Incidencia
+    from app.models.vivienda import Vivienda
 
-    viv_str = str(vivienda_oid)
+    viv_id = int(vivienda_oid)
 
-    for a in list(srp.load_all(AccesoVivienda)):
-        if str(a.vivienda_oid) == viv_str:
-            srp.delete(a.__oid__)
+    AccesoVivienda.query.filter_by(vivienda_oid=viv_id).delete()
+    CierreMensual.query.filter_by(vivienda_oid=viv_id).delete()
+    Incidencia.query.filter_by(vivienda_oid=viv_id).delete()
 
-    for c in list(srp.load_all(CierreMensual)):
-        if str(c.vivienda_oid) == viv_str:
-            srp.delete(c.__oid__)
-
-    for i in list(srp.load_all(Incidencia)):
-        if str(i.vivienda_oid) == viv_str:
-            srp.delete(i.__oid__)
-
-    srp.delete(vivienda_oid)
+    viv = db.session.get(Vivienda, viv_id)
+    if viv:
+        db.session.delete(viv)
+    db.session.commit()
 
 
-def cascade_delete_comunidad(srp, comunidad_oid):
+def cascade_delete_comunidad(comunidad_oid):
     """Borra una comunidad y todos sus objetos dependientes.
 
     Cascada: Viviendas (con su propia cascada) → Bateria → Notificaciones relacionadas → Comunidad
@@ -147,28 +136,27 @@ def cascade_delete_comunidad(srp, comunidad_oid):
     from app.models.vivienda import Vivienda
     from app.models.bateria import Bateria
     from app.models.notificacion import Notificacion
+    from app.models.comunidad import Comunidad
 
-    com_str = str(comunidad_oid)
+    com_id = int(comunidad_oid)
 
     # Borrar cada vivienda con su cascada
-    for v in list(srp.load_all(Vivienda)):
-        if str(v.comunidad_oid) == com_str:
-            cascade_delete_vivienda(srp, v.__oid__)
+    for v in Vivienda.query.filter_by(comunidad_oid=com_id).all():
+        cascade_delete_vivienda(v.id)
 
     # Borrar batería
-    for b in list(srp.load_all(Bateria)):
-        if str(b.comunidad_oid) == com_str:
-            srp.delete(b.__oid__)
+    Bateria.query.filter_by(comunidad_oid=com_id).delete()
 
     # Borrar notificaciones relacionadas con esta comunidad
-    for n in list(srp.load_all(Notificacion)):
-        if n.entidad_relacionada_oid and str(n.entidad_relacionada_oid) == com_str:
-            srp.delete(n.__oid__)
+    Notificacion.query.filter_by(entidad_relacionada_oid=com_id).delete()
 
-    srp.delete(comunidad_oid)
+    com = db.session.get(Comunidad, com_id)
+    if com:
+        db.session.delete(com)
+    db.session.commit()
 
 
-def puede_borrar_usuario(srp, usuario_oid) -> tuple:
+def puede_borrar_usuario(usuario_oid) -> tuple:
     """Comprueba si es seguro borrar un usuario.
 
     Devuelve (True, '') si se puede borrar.
@@ -176,26 +164,22 @@ def puede_borrar_usuario(srp, usuario_oid) -> tuple:
 
     Bloqueos:
     - Es el único titular de alguna vivienda.
-    - Es el único admin de alguna comunidad.
     """
     from app.models.acceso import AccesoVivienda
     from app.models.vivienda import Vivienda
-    from sirope import OID
 
-    usr_str = str(usuario_oid)
-    todos_accesos = list(srp.load_all(AccesoVivienda))
-    accesos_usuario = [a for a in todos_accesos if str(a.usuario_oid) == usr_str]
+    usr_id = int(usuario_oid)
+    accesos_usuario = AccesoVivienda.query.filter_by(usuario_oid=usr_id).all()
 
     for acceso in accesos_usuario:
         if acceso.rol_en_vivienda == 'titular':
-            otros_titulares = [
-                a for a in todos_accesos
-                if str(a.vivienda_oid) == acceso.vivienda_oid
-                and a.rol_en_vivienda == 'titular'
-                and str(a.usuario_oid) != usr_str
-            ]
+            otros_titulares = AccesoVivienda.query.filter(
+                AccesoVivienda.vivienda_oid == acceso.vivienda_oid,
+                AccesoVivienda.rol_en_vivienda == 'titular',
+                AccesoVivienda.usuario_oid != usr_id,
+            ).first()
             if not otros_titulares:
-                viv = srp.load(OID.from_text(acceso.vivienda_oid))
+                viv = db.session.get(Vivienda, acceso.vivienda_oid)
                 nombre_viv = viv.identificador if viv else acceso.vivienda_oid
                 return False, f'Es el único titular de la vivienda "{nombre_viv}"'
 
@@ -206,40 +190,39 @@ def puede_borrar_usuario(srp, usuario_oid) -> tuple:
 # Creación de notificaciones
 # ---------------------------------------------------------------------------
 
-def crear_notificacion(srp, usuario_oid, tipo, titulo, mensaje,
+def crear_notificacion(usuario_oid, tipo, titulo, mensaje,
                        entidad_oid=None, entidad_tipo=None):
     """Crea y guarda una notificación para un usuario."""
     from app.models.notificacion import Notificacion
     n = Notificacion(
-        usuario_oid=str(usuario_oid),
+        usuario_oid=int(usuario_oid),
         tipo=tipo,
         titulo=titulo,
         mensaje=mensaje,
-        entidad_relacionada_oid=str(entidad_oid) if entidad_oid else None,
+        entidad_relacionada_oid=entidad_oid,
         entidad_relacionada_tipo=entidad_tipo
     )
-    srp.save(n)
+    db.session.add(n)
+    db.session.commit()
     return n
 
 
-def notificar_a_comunidad(srp, comunidad_oid, tipo, titulo, mensaje,
+def notificar_a_comunidad(comunidad_oid, tipo, titulo, mensaje,
                            entidad_oid=None, entidad_tipo=None):
     """Envía una notificación a todos los usuarios con acceso a la comunidad."""
     from app.models.vivienda import Vivienda
     from app.models.acceso import AccesoVivienda
 
-    com_str = str(comunidad_oid)
-    viviendas_oids = {
-        str(v.__oid__)
-        for v in srp.load_all(Vivienda)
-        if str(v.comunidad_oid) == com_str
-    }
+    com_id = int(comunidad_oid)
+    viviendas_ids = [
+        v.id for v in Vivienda.query.filter_by(comunidad_oid=com_id).all()
+    ]
+    if not viviendas_ids:
+        return
     # Usuarios únicos con acceso
-    usuarios_notificados = set()
-    for a in srp.load_all(AccesoVivienda):
-        if str(a.vivienda_oid) in viviendas_oids:
-            usr = a.usuario_oid
-            if usr not in usuarios_notificados:
-                usuarios_notificados.add(usr)
-                crear_notificacion(srp, usr, tipo, titulo, mensaje,
-                                   entidad_oid, entidad_tipo)
+    accesos = AccesoVivienda.query.filter(
+        AccesoVivienda.vivienda_oid.in_(viviendas_ids)
+    ).all()
+    usuarios_notificados = {a.usuario_oid for a in accesos}
+    for usr in usuarios_notificados:
+        crear_notificacion(usr, tipo, titulo, mensaje, entidad_oid, entidad_tipo)

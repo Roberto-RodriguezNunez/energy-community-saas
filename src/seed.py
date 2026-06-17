@@ -17,6 +17,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import create_app
+from app.extensions import db
 from app.models.usuario import Usuario
 from app.models.comunidad import Comunidad
 from app.models.vivienda import Vivienda
@@ -229,10 +230,15 @@ def cierre_para_vivienda(viv_oid, mes, tiene_paneles, coef, idx):
 
 def seed():
     app = create_app()
-    srp = app.sirope
+
+    def save(obj):
+        """Persiste el objeto y devuelve su id (equivalente al antiguo srp.save)."""
+        db.session.add(obj)
+        db.session.flush()
+        return obj.id
 
     with app.app_context():
-        if srp.num_objs(Usuario) > 0:
+        if Usuario.query.count() > 0:
             print("⚠️  Ya hay datos. Seed omitido (usa 'docker compose down -v' para limpiar).")
             return
 
@@ -253,7 +259,7 @@ def seed():
         for i, (nombre, email, pwd) in enumerate(USUARIOS_DATA):
             rol = 'superadmin' if i == 0 else 'normal'
             u = Usuario(nombre, email, pwd, rol)
-            oid = srp.save(u)
+            oid = save(u)
             usuarios_oids.append(oid)
         print(f"   ✅ {len(usuarios_oids)} usuarios creados")
 
@@ -268,7 +274,7 @@ def seed():
             descripcion='Comunidad energética en el centro de Vigo con 15 viviendas, '
                         'batería de 20 kWh y paneles en 8 viviendas.'
         )
-        vigo_oid = srp.save(vigo)
+        vigo_oid = save(vigo)
 
         santiago = Comunidad(
             nombre='Eco-Barrio Santiago',
@@ -278,7 +284,7 @@ def seed():
             descripcion='Proyecto piloto de comunidad energética en 3 bloques residenciales '
                         'de Santiago de Compostela. 12 viviendas con batería de 30 kWh.'
         )
-        santiago_oid = srp.save(santiago)
+        santiago_oid = save(santiago)
         print(f"\n🏘️  2 comunidades creadas")
 
         # ------------------------------------------------------------------
@@ -301,7 +307,7 @@ def seed():
                 fecha_instalacion_paneles='2022-06-01' if paneles else None,
                 orientacion_paneles=orient
             )
-            oid = srp.save(v)
+            oid = save(v)
             vigo_viv_oids.append(oid)
 
         # ------------------------------------------------------------------
@@ -324,13 +330,13 @@ def seed():
                 fecha_instalacion_paneles='2023-07-01' if paneles else None,
                 orientacion_paneles=orient
             )
-            oid = srp.save(v)
+            oid = save(v)
             stgo_viv_oids.append(oid)
 
         # ------------------------------------------------------------------
         # Baterías
         # ------------------------------------------------------------------
-        srp.save(Bateria(
+        save(Bateria(
             comunidad_oid=vigo_oid,
             capacidad_nominal_kwh=20.0,
             capacidad_util_actual_kwh=18.4,
@@ -340,7 +346,7 @@ def seed():
             modelo='Battery-Box Premium HVS 20.0',
             estado='operativa'
         ))
-        srp.save(Bateria(
+        save(Bateria(
             comunidad_oid=santiago_oid,
             capacidad_nominal_kwh=30.0,
             capacidad_util_actual_kwh=29.1,
@@ -364,7 +370,7 @@ def seed():
                 rol_en_vivienda=rol,
                 fecha_incorporacion='2022-04-01'
             )
-            srp.save(a)
+            save(a)
             n_accesos += 1
 
         # Accesos — Santiago
@@ -375,7 +381,7 @@ def seed():
                 rol_en_vivienda=rol,
                 fecha_incorporacion='2023-05-01'
             )
-            srp.save(a)
+            save(a)
             n_accesos += 1
 
         print(f"   ✅ {n_accesos} accesos creados")
@@ -390,7 +396,7 @@ def seed():
             tiene_paneles = viv_data[5]
             for mes in MESES:
                 c = cierre_para_vivienda(viv_oid, mes, tiene_paneles, coef, idx)
-                srp.save(c)
+                save(c)
                 n_cierres += 1
 
         for idx, (viv_data, viv_oid) in enumerate(zip(VIVIENDAS_SANTIAGO, stgo_viv_oids)):
@@ -398,7 +404,7 @@ def seed():
             tiene_paneles = viv_data[5]
             for mes in MESES:
                 c = cierre_para_vivienda(viv_oid, mes, tiene_paneles, coef, idx + 20)
-                srp.save(c)
+                save(c)
                 n_cierres += 1
 
         print(f"   ✅ {n_cierres} cierres creados")
@@ -411,7 +417,7 @@ def seed():
         def notif(usr_idx, tipo, titulo, mensaje, leida=False):
             n = Notificacion(usuarios_oids[usr_idx], tipo, titulo, mensaje)
             n.leida = leida
-            srp.save(n)
+            save(n)
 
         # Para Carmen (admin Vigo)
         notif(1, 'general', '¡Bienvenida, administradora!',
@@ -438,6 +444,9 @@ def seed():
         # Una no leída para demostrar el contador
         notif(3, 'cambio_coeficiente', 'Actualización de coeficientes',
               'Los coeficientes de reparto han sido revisados para 2025. Tu coeficiente no varía.')
+
+        # Confirmar toda la transacción en PostgreSQL
+        db.session.commit()
 
         print(f"   ✅ Notificaciones creadas")
 

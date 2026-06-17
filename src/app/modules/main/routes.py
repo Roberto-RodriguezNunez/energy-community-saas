@@ -1,9 +1,10 @@
 """Rutas del panel principal (dashboard) según rol del usuario."""
 import json
 from collections import defaultdict
-from flask import render_template, current_app
+from flask import render_template
 from flask_login import login_required, current_user
 
+from app.extensions import db
 from app.modules.main import main_bp
 from app.models.comunidad import Comunidad
 from app.models.vivienda import Vivienda
@@ -19,11 +20,9 @@ def index():
     if not current_user.is_authenticated:
         return render_template('main/landing.html')
 
-    srp = current_app.sirope
-
     if current_user.es_superadmin:
-        comunidades = list(srp.load_all(Comunidad))
-        todas_viviendas = list(srp.load_all(Vivienda))
+        comunidades = Comunidad.query.all()
+        todas_viviendas = Vivienda.query.all()
         # Agrupar viviendas por comunidad
         viviendas_por_com = {}
         for v in todas_viviendas:
@@ -33,16 +32,11 @@ def index():
                                comunidades=comunidades,
                                viviendas_por_com=viviendas_por_com,
                                total_viviendas=len(todas_viviendas),
-                               total_usuarios=srp.num_objs(Usuario),
+                               total_usuarios=Usuario.query.count(),
                                total_comunidades=len(comunidades))
 
     # ── Usuario normal ──────────────────────────────────────────────
-    from sirope import OID
-    usr_str = str(current_user.__oid__)
-
-    accesos = [a for a in srp.load_all(AccesoVivienda) if str(a.usuario_oid) == usr_str]
-    todos_cierres  = list(srp.load_all(CierreMensual))
-    todas_baterias = list(srp.load_all(Bateria))
+    accesos = AccesoVivienda.query.filter_by(usuario_oid=current_user.id).all()
 
     # Cache de comunidades ya cargadas
     com_cache = {}
@@ -52,33 +46,27 @@ def index():
 
     for a in accesos:
         try:
-            viv = srp.load(OID.from_text(a.vivienda_oid))
+            viv = db.session.get(Vivienda, a.vivienda_oid)
             if not viv:
                 continue
 
             # Comunidad de esta vivienda
             com_str = str(viv.comunidad_oid)
             if com_str not in com_cache:
-                try:
-                    com = srp.load(OID.from_text(com_str))
-                    com_cache[com_str] = com
-                except Exception:
-                    com_cache[com_str] = None
+                com_cache[com_str] = db.session.get(Comunidad, viv.comunidad_oid)
             com = com_cache[com_str]
 
             # Batería de la comunidad
-            bat = next((b for b in todas_baterias if str(b.comunidad_oid) == com_str), None)
+            bat = Bateria.query.filter_by(comunidad_oid=viv.comunidad_oid).first()
             bat_pct = None
             if bat:
                 bat_pct = min(round(bat.capacidad_util_actual_kwh
                                     / bat.capacidad_nominal_kwh * 100), 100)
 
             # Cierres de esta vivienda
-            viv_str = str(viv.__oid__)
-            cierres = sorted(
-                [c for c in todos_cierres if str(c.vivienda_oid) == viv_str],
-                key=lambda c: c.mes
-            )
+            cierres = CierreMensual.query.filter_by(
+                vivienda_oid=viv.id
+            ).order_by(CierreMensual.mes).all()
 
             ahorro_total = round(sum(c.ahorro_eur for c in cierres), 2)
             ahorro_global += ahorro_total
@@ -123,10 +111,10 @@ def index():
 
     # Incidencias abiertas del usuario
     from app.models.incidencia import Incidencia
-    incidencias_abiertas = [
-        i for i in srp.load_all(Incidencia)
-        if str(i.usuario_oid) == usr_str and i.estado != 'cerrada'
-    ]
+    incidencias_abiertas = Incidencia.query.filter(
+        Incidencia.usuario_oid == current_user.id,
+        Incidencia.estado != 'cerrada',
+    ).all()
 
     return render_template('main/dashboard_usuario.html',
                            viviendas_data=viviendas_data,

@@ -25,7 +25,6 @@ def acceso_vivienda_required(param='safe_oid'):
                 abort(401)
             if current_user.rol_global == 'superadmin':
                 return f(*args, **kwargs)
-            from flask import current_app
             from app.helpers import usuario_tiene_acceso, oid_from_safe
             safe_oid = kwargs.get(param)
             if not safe_oid:
@@ -34,8 +33,7 @@ def acceso_vivienda_required(param='safe_oid'):
                 vivienda_oid = oid_from_safe(safe_oid)
             except Exception:
                 abort(404)
-            srp = current_app.sirope
-            if not usuario_tiene_acceso(srp, current_user.__oid__, vivienda_oid):
+            if not usuario_tiene_acceso(current_user.id, vivienda_oid):
                 abort(403)
             return f(*args, **kwargs)
         return decorated

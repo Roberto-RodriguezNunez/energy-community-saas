@@ -1,10 +1,10 @@
 #!/bin/sh
-# Esperar a que Redis esté listo (por si acaso)
-echo "⏳ Esperando Redis..."
-until python3 -c "import redis; redis.Redis(host='redis', port=6379).ping()" 2>/dev/null; do
+# Esperar a que PostgreSQL esté listo
+echo "⏳ Esperando PostgreSQL..."
+until python3 -c "import os, psycopg2; psycopg2.connect(os.environ['DATABASE_URL']).close()" 2>/dev/null; do
   sleep 1
 done
-echo "✅ Redis listo."
+echo "✅ PostgreSQL listo."
 
 # Cargar seed si la BD está vacía (idempotente)
 python3 seed.py

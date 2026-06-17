@@ -24,7 +24,7 @@ class TestMarcarLeida:
         safe = oid_to_safe(notificacion.__oid__)
         resp = client.post(f'/notificaciones/{safe}/leer', follow_redirects=True)
         assert resp.status_code == 200
-        n = srp.load(notificacion.__oid__)
+        n = srp.load(Notificacion, notificacion.__oid__)
         assert n.leida is True
 
     def test_marcar_ajax(self, client, usuario, notificacion):

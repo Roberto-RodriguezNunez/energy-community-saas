@@ -1,7 +1,8 @@
 """Rutas de autenticación: login, logout, registro, perfil."""
-from flask import render_template, redirect, url_for, request, current_app
+from flask import render_template, redirect, url_for, request
 from flask_login import login_user, logout_user, login_required, current_user
 
+from app.extensions import db
 from app.modules.auth import auth_bp
 from app.modules.auth.forms import LoginForm, RegistroForm, CambiarPasswordForm
 from app.helpers import flash_exito, flash_error
@@ -14,9 +15,8 @@ def login():
         return redirect(url_for('main.index'))
     form = LoginForm()
     if form.validate_on_submit():
-        srp = current_app.sirope
         email_buscado = form.email.data.lower().strip()
-        usuario = srp.find_first(Usuario, lambda u: getattr(u, 'email', None) == email_buscado)
+        usuario = Usuario.query.filter_by(email=email_buscado).first()
         if usuario and usuario.verificar_password(form.password.data):
             login_user(usuario, remember=form.recordarme.data)
             siguiente = request.args.get('next')
@@ -38,16 +38,16 @@ def registro():
         return redirect(url_for('main.index'))
     form = RegistroForm()
     if form.validate_on_submit():
-        srp = current_app.sirope
         email = form.email.data.lower().strip()
-        if srp.find_first(Usuario, lambda u: getattr(u, 'email', None) == email):
+        if Usuario.query.filter_by(email=email).first():
             flash_error('Este email ya está registrado.')
             return render_template('auth/registro.html', form=form)
         # El primer usuario registrado es automáticamente superadmin
-        es_primero = srp.num_objs(Usuario) == 0
+        es_primero = Usuario.query.count() == 0
         rol = 'superadmin' if es_primero else 'normal'
         usuario = Usuario(form.nombre.data, email, form.password.data, rol)
-        srp.save(usuario)
+        db.session.add(usuario)
+        db.session.commit()
         login_user(usuario)
         flash_exito('¡Cuenta creada correctamente! Bienvenido a EnergyComm.')
         return redirect(url_for('main.index'))
@@ -60,9 +60,8 @@ def perfil():
     from app.modules.usuarios.forms import PerfilForm
     form = PerfilForm(obj=current_user)
     if form.validate_on_submit():
-        srp = current_app.sirope
         current_user.nombre = form.nombre.data
-        srp.save(current_user)
+        db.session.commit()
         flash_exito('Perfil actualizado.')
         return redirect(url_for('auth.perfil'))
     return render_template('auth/perfil.html', form=form)
@@ -76,9 +75,8 @@ def cambiar_password():
         if not current_user.verificar_password(form.password_actual.data):
             flash_error('La contraseña actual no es correcta.')
             return render_template('auth/cambiar_password.html', form=form)
-        srp = current_app.sirope
         current_user.set_password(form.nueva_password.data)
-        srp.save(current_user)
+        db.session.commit()
         flash_exito('Contraseña actualizada correctamente.')
         return redirect(url_for('auth.perfil'))
     return render_template('auth/cambiar_password.html', form=form)

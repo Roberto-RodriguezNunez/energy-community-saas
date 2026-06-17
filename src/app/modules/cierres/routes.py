@@ -1,9 +1,9 @@
 """CRUD de CierresMensuales."""
-from flask import render_template, redirect, url_for, request, abort, jsonify, current_app
+from flask import render_template, redirect, url_for, request, abort, jsonify
 from flask_login import login_required, current_user
-from sirope import OID
 import json
 
+from app.extensions import db
 from app.modules.cierres import cierres_bp
 from app.modules.cierres.forms import CierreForm
 from app.models.cierre import CierreMensual
@@ -14,33 +14,32 @@ from app.helpers import (oid_from_safe, oid_to_safe, flash_exito, flash_error,
 from app.decorators import superadmin_required
 
 
-def _comprobar_acceso_o_superadmin(srp, viv_oid):
+def _comprobar_acceso_o_superadmin(viv_oid):
     if current_user.es_superadmin:
         return
-    if not usuario_tiene_acceso(srp, current_user.__oid__, viv_oid):
+    if not usuario_tiene_acceso(current_user.id, viv_oid):
         abort(403)
 
 
 @cierres_bp.route('/vivienda/<vivienda_safe_oid>/')
 @login_required
 def lista(vivienda_safe_oid):
-    srp = current_app.sirope
     try:
         viv_oid = oid_from_safe(vivienda_safe_oid)
     except Exception:
         abort(404)
-    viv = srp.load(viv_oid)
+    viv = db.session.get(Vivienda, viv_oid)
     if not viv:
         abort(404)
-    _comprobar_acceso_o_superadmin(srp, viv_oid)
+    _comprobar_acceso_o_superadmin(viv_oid)
 
-    viv_str = str(viv_oid)
     mes_filtro = request.args.get('mes', '')
-    cierres = [c for c in srp.load_all(CierreMensual) if str(c.vivienda_oid) == viv_str]
+    query = CierreMensual.query.filter_by(vivienda_oid=viv_oid)
     if mes_filtro:
-        cierres = [c for c in cierres if mes_filtro in c.mes]
-    cierres = sorted(cierres, key=lambda c: c.mes, reverse=True)
-    com = srp.load(OID.from_text(viv.comunidad_oid))
+        query = query.filter(CierreMensual.mes.contains(mes_filtro))
+    cierres = query.order_by(CierreMensual.mes.desc()).all()
+    from app.models.comunidad import Comunidad
+    com = db.session.get(Comunidad, viv.comunidad_oid)
 
     return render_template('cierres/lista.html',
                            cierres=cierres, viv=viv,
@@ -53,25 +52,23 @@ def lista(vivienda_safe_oid):
 @login_required
 @superadmin_required
 def nuevo(vivienda_safe_oid):
-    srp = current_app.sirope
+    from app.models.comunidad import Comunidad
     try:
         viv_oid = oid_from_safe(vivienda_safe_oid)
     except Exception:
         abort(404)
-    viv = srp.load(viv_oid)
+    viv = db.session.get(Vivienda, viv_oid)
     if not viv:
         abort(404)
 
     form = CierreForm()
-    com = srp.load(OID.from_text(viv.comunidad_oid))
+    com = db.session.get(Comunidad, viv.comunidad_oid)
 
     if form.validate_on_submit():
-        viv_str = str(viv_oid)
         mes = form.mes.data
-        existe = srp.find_first(
-            CierreMensual,
-            lambda c, _v=viv_str, _m=mes: str(c.vivienda_oid) == _v and c.mes == _m
-        )
+        existe = CierreMensual.query.filter_by(
+            vivienda_oid=viv_oid, mes=mes
+        ).first()
         if existe:
             flash_error(f'Ya existe un cierre para {mes} en esta vivienda.')
             return render_template('cierres/form.html', form=form, viv=viv,
@@ -88,15 +85,17 @@ def nuevo(vivienda_safe_oid):
             porcentaje_ahorro_global=form.porcentaje_ahorro_global.data,
             coeficiente_reparto_aplicado=form.coeficiente_reparto_aplicado.data
         )
-        srp.save(cierre)
+        db.session.add(cierre)
+        db.session.commit()
 
-        for a in srp.load_all(AccesoVivienda):
-            if str(a.vivienda_oid) == viv_str and a.rol_en_vivienda in ('titular', 'convivente'):
+        accesos = AccesoVivienda.query.filter_by(vivienda_oid=viv_oid).all()
+        for a in accesos:
+            if a.rol_en_vivienda in ('titular', 'convivente'):
                 crear_notificacion(
-                    srp, a.usuario_oid, 'cierre_disponible',
+                    a.usuario_oid, 'cierre_disponible',
                     f'Cierre de {mes} disponible',
                     f'El cierre energético de {mes} de tu vivienda ya está disponible. Ahorro: {cierre.ahorro_eur:.2f} €',
-                    entidad_oid=cierre.__oid__, entidad_tipo='CierreMensual'
+                    entidad_oid=cierre.id, entidad_tipo='CierreMensual'
                 )
 
         flash_exito(f'Cierre de {mes} creado correctamente.')
@@ -108,23 +107,23 @@ def nuevo(vivienda_safe_oid):
 @cierres_bp.route('/<safe_oid>')
 @login_required
 def detalle(safe_oid):
-    srp = current_app.sirope
+    from app.models.comunidad import Comunidad
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         abort(404)
-    cierre = srp.load(oid)
+    cierre = db.session.get(CierreMensual, oid)
     if not cierre:
         abort(404)
 
-    viv_oid = OID.from_text(cierre.vivienda_oid)
-    viv = srp.load(viv_oid)
+    viv_oid = cierre.vivienda_oid
+    viv = db.session.get(Vivienda, viv_oid)
     if not viv:
         abort(404)
-    _comprobar_acceso_o_superadmin(srp, viv_oid)
+    _comprobar_acceso_o_superadmin(viv_oid)
 
     vivienda_safe_oid = oid_to_safe(viv_oid)
-    com = srp.load(OID.from_text(viv.comunidad_oid))
+    com = db.session.get(Comunidad, viv.comunidad_oid)
 
     chart_energia = json.dumps({
         'labels': ['Autoconsumo directo', 'De batería', 'De red'],
@@ -146,22 +145,22 @@ def detalle(safe_oid):
 @login_required
 @superadmin_required
 def eliminar(safe_oid):
-    srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         if is_xhr():
             return jsonify({'success': False, 'error': 'OID inválida'}), 404
         abort(404)
-    cierre = srp.load(oid)
+    cierre = db.session.get(CierreMensual, oid)
     if not cierre:
         if is_xhr():
             return jsonify({'success': False, 'error': 'No encontrado'}), 404
         abort(404)
 
-    vivienda_safe_oid = oid_to_safe(OID.from_text(cierre.vivienda_oid))
+    vivienda_safe_oid = oid_to_safe(cierre.vivienda_oid)
     mes = cierre.mes
-    srp.delete(oid)
+    db.session.delete(cierre)
+    db.session.commit()
     flash_exito(f'Cierre de {mes} eliminado.')
     if is_xhr():
         return jsonify({'success': True})

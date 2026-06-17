@@ -1,7 +1,7 @@
 """CRUD de Comunidades."""
 import json
 from collections import defaultdict
-from flask import render_template, redirect, url_for, request, abort, jsonify, current_app
+from flask import render_template, redirect, url_for, request, abort, jsonify
 from flask_login import login_required, current_user
 
 from app.modules.comunidades import comunidades_bp
@@ -11,6 +11,7 @@ from app.models.vivienda import Vivienda
 from app.models.bateria import Bateria
 from app.models.acceso import AccesoVivienda
 from app.models.cierre import CierreMensual
+from app.extensions import db
 from app.helpers import oid_from_safe, flash_exito, flash_error, is_xhr, cascade_delete_comunidad
 from app.decorators import superadmin_required
 from datetime import date
@@ -20,10 +21,9 @@ from datetime import date
 @login_required
 @superadmin_required
 def lista():
-    srp = current_app.sirope
     q = request.args.get('q', '').lower()
     estado_filtro = request.args.get('estado', '')
-    comunidades = list(srp.load_all(Comunidad))
+    comunidades = Comunidad.query.all()
     if q:
         comunidades = [c for c in comunidades if q in c.nombre.lower() or q in c.ubicacion.lower()]
     if estado_filtro:
@@ -36,10 +36,12 @@ def lista():
 @login_required
 @superadmin_required
 def nueva():
-    srp = current_app.sirope
     form = ComunidadForm()
     if form.validate_on_submit():
-        existe = srp.find_first(Comunidad, lambda c: c.nombre.lower() == form.nombre.data.lower())
+        nombre_norm = form.nombre.data.lower()
+        existe = Comunidad.query.filter(
+            db.func.lower(Comunidad.nombre) == nombre_norm
+        ).first()
         if existe:
             flash_error('Ya existe una comunidad con ese nombre.')
             return render_template('comunidades/form.html', form=form, titulo='Nueva comunidad')
@@ -50,7 +52,8 @@ def nueva():
             estado=form.estado.data,
             descripcion=form.descripcion.data
         )
-        srp.save(com)
+        db.session.add(com)
+        db.session.commit()
         flash_exito(f'Comunidad "{com.nombre}" creada.')
         return redirect(url_for('comunidades.lista'))
     return render_template('comunidades/form.html', form=form, titulo='Nueva comunidad')
@@ -59,38 +62,36 @@ def nueva():
 @comunidades_bp.route('/<safe_oid>')
 @login_required
 def detalle(safe_oid):
-    srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         abort(404)
-    com = srp.load(oid)
+    com = db.session.get(Comunidad, oid)
     if not com:
         abort(404)
 
+    viviendas = Vivienda.query.filter_by(comunidad_oid=oid).all()
+    viv_ids = [v.id for v in viviendas]
+
     # Superadmin ve todo; usuario normal solo si tiene acceso a alguna vivienda aquí
     if not current_user.es_superadmin:
-        com_str = str(oid)
-        viviendas_com = {
-            str(v.__oid__)
-            for v in srp.load_all(Vivienda)
-            if str(v.comunidad_oid) == com_str
-        }
-        acceso = srp.find_first(
-            AccesoVivienda,
-            lambda a: str(a.usuario_oid) == str(current_user.__oid__)
-                      and str(a.vivienda_oid) in viviendas_com
-        )
+        acceso = None
+        if viv_ids:
+            acceso = AccesoVivienda.query.filter(
+                AccesoVivienda.usuario_oid == current_user.id,
+                AccesoVivienda.vivienda_oid.in_(viv_ids),
+            ).first()
         if not acceso:
             abort(403)
 
-    com_str = str(oid)
-    viviendas = [v for v in srp.load_all(Vivienda) if str(v.comunidad_oid) == com_str]
-    bateria = srp.find_first(Bateria, lambda b: str(b.comunidad_oid) == com_str)
+    bateria = Bateria.query.filter_by(comunidad_oid=oid).first()
 
     # Gráfica agregada de la comunidad (suma de todos los cierres de sus viviendas)
-    viv_oids = {str(v.__oid__) for v in viviendas}
-    cierres_com = [c for c in srp.load_all(CierreMensual) if str(c.vivienda_oid) in viv_oids]
+    cierres_com = []
+    if viv_ids:
+        cierres_com = CierreMensual.query.filter(
+            CierreMensual.vivienda_oid.in_(viv_ids)
+        ).all()
 
     por_mes = defaultdict(lambda: {'ahorro': 0.0, 'base': 0.0, 'real': 0.0})
     for c in cierres_com:
@@ -123,12 +124,11 @@ def detalle(safe_oid):
 @login_required
 @superadmin_required
 def editar(safe_oid):
-    srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         abort(404)
-    com = srp.load(oid)
+    com = db.session.get(Comunidad, oid)
     if not com:
         abort(404)
 
@@ -140,11 +140,11 @@ def editar(safe_oid):
             pass
 
     if form.validate_on_submit():
-        duplicada = srp.find_first(
-            Comunidad,
-            lambda c: c.nombre.lower() == form.nombre.data.lower()
-                      and str(c.__oid__) != str(oid)
-        )
+        nombre_norm = form.nombre.data.lower()
+        duplicada = Comunidad.query.filter(
+            db.func.lower(Comunidad.nombre) == nombre_norm,
+            Comunidad.id != oid,
+        ).first()
         if duplicada:
             flash_error('Ya existe otra comunidad con ese nombre.')
             return render_template('comunidades/form.html', form=form,
@@ -154,7 +154,7 @@ def editar(safe_oid):
         com.fecha_constitucion = form.fecha_constitucion.data.isoformat()
         com.estado = form.estado.data
         com.descripcion = form.descripcion.data
-        srp.save(com)
+        db.session.commit()
         flash_exito(f'Comunidad "{com.nombre}" actualizada.')
         return redirect(url_for('comunidades.detalle', safe_oid=safe_oid))
     return render_template('comunidades/form.html', form=form,
@@ -165,21 +165,20 @@ def editar(safe_oid):
 @login_required
 @superadmin_required
 def eliminar(safe_oid):
-    srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         if is_xhr():
             return jsonify({'success': False, 'error': 'OID inválida'}), 404
         abort(404)
-    com = srp.load(oid)
+    com = db.session.get(Comunidad, oid)
     if not com:
         if is_xhr():
             return jsonify({'success': False, 'error': 'No encontrada'}), 404
         abort(404)
 
     nombre = com.nombre
-    cascade_delete_comunidad(srp, oid)
+    cascade_delete_comunidad(oid)
     flash_exito(f'Comunidad "{nombre}" y todos sus datos han sido eliminados.')
     if is_xhr():
         return jsonify({'success': True, 'redirect': url_for('comunidades.lista')})

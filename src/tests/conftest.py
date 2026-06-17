@@ -1,6 +1,7 @@
 """Fixtures compartidas para todos los tests."""
 import pytest
 from app import create_app
+from app.extensions import db
 from app.models.usuario import Usuario
 from app.models.comunidad import Comunidad
 from app.models.vivienda import Vivienda
@@ -9,29 +10,49 @@ from app.models.bateria import Bateria
 from app.models.cierre import CierreMensual
 from app.models.incidencia import Incidencia
 from app.models.notificacion import Notificacion
-from app.helpers import oid_to_safe
+
+
+class Store:
+    """Pequeño adaptador con la API que usaban los tests sobre Sirope,
+    ahora respaldado por SQLAlchemy. Cada lectura refresca la sesión para
+    reflejar lo que hayan escrito las peticiones (que usan otra sesión)."""
+
+    def save(self, obj):
+        db.session.add(obj)
+        db.session.commit()
+        return obj
+
+    def delete(self, obj):
+        db.session.delete(obj)
+        db.session.commit()
+
+    def load(self, cls, oid):
+        db.session.expire_all()
+        return db.session.get(cls, int(oid))
+
+    def load_all(self, cls):
+        db.session.expire_all()
+        return cls.query.all()
+
+    def num_objs(self, cls):
+        db.session.expire_all()
+        return cls.query.count()
+
+    def find_first(self, cls, pred):
+        db.session.expire_all()
+        return next((o for o in cls.query.all() if pred(o)), None)
 
 
 @pytest.fixture()
 def app():
-    """Crea la app Flask en modo test con Redis DB 15 (aislada)."""
-    import os
-    os.environ['REDIS_DB'] = '15'
-    os.environ['REDIS_HOST'] = 'localhost'
-    application = create_app('development')
-    application.config['TESTING'] = True
-    application.config['WTF_CSRF_ENABLED'] = False
+    """Crea la app Flask en modo test con SQLite en memoria (aislada por test)."""
+    application = create_app('testing')
 
-    # Limpiar DB 15 antes de cada test
-    import redis as r
-    rc = r.Redis(host=application.config['REDIS_HOST'],
-                 port=application.config['REDIS_PORT'],
-                 db=15)
-    rc.flushdb()
-
-    yield application
-
-    rc.flushdb()
+    with application.app_context():
+        db.create_all()
+        yield application
+        db.session.remove()
+        db.drop_all()
 
 
 @pytest.fixture()
@@ -41,7 +62,7 @@ def client(app):
 
 @pytest.fixture()
 def srp(app):
-    return app.sirope
+    return Store()
 
 
 @pytest.fixture()

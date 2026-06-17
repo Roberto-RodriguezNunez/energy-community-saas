@@ -1,9 +1,9 @@
 """CRUD de Baterías."""
-from flask import render_template, redirect, url_for, request, abort, jsonify, current_app
+from flask import render_template, redirect, url_for, request, abort, jsonify
 from flask_login import login_required, current_user
-from sirope import OID
 from datetime import date
 
+from app.extensions import db
 from app.modules.baterias import baterias_bp
 from app.modules.baterias.forms import BateriaForm, CambiarEstadoBateriaForm
 from app.models.bateria import Bateria
@@ -21,18 +21,16 @@ def _comprobar_superadmin():
 @baterias_bp.route('/comunidad/<comunidad_safe_oid>/')
 @login_required
 def detalle_comunidad(comunidad_safe_oid):
-    srp = current_app.sirope
     try:
         com_oid = oid_from_safe(comunidad_safe_oid)
     except Exception:
         abort(404)
-    com = srp.load(com_oid)
+    com = db.session.get(Comunidad, com_oid)
     if not com:
         abort(404)
     _comprobar_superadmin()
 
-    com_str = str(com_oid)
-    bateria = srp.find_first(Bateria, lambda b: str(b.comunidad_oid) == com_str)
+    bateria = Bateria.query.filter_by(comunidad_oid=com_oid).first()
     form_estado = CambiarEstadoBateriaForm()
     if bateria:
         form_estado.estado.data = bateria.estado
@@ -47,19 +45,17 @@ def detalle_comunidad(comunidad_safe_oid):
 @baterias_bp.route('/comunidad/<comunidad_safe_oid>/nueva', methods=['GET', 'POST'])
 @login_required
 def nueva(comunidad_safe_oid):
-    srp = current_app.sirope
     try:
         com_oid = oid_from_safe(comunidad_safe_oid)
     except Exception:
         abort(404)
-    com = srp.load(com_oid)
+    com = db.session.get(Comunidad, com_oid)
     if not com:
         abort(404)
     _comprobar_superadmin()
 
     # Solo puede haber una batería por comunidad
-    com_str = str(com_oid)
-    if srp.find_first(Bateria, lambda b: str(b.comunidad_oid) == com_str):
+    if Bateria.query.filter_by(comunidad_oid=com_oid).first():
         flash_error('Esta comunidad ya tiene una batería registrada. Edítala en lugar de crear una nueva.')
         return redirect(url_for('baterias.detalle_comunidad', comunidad_safe_oid=comunidad_safe_oid))
 
@@ -75,7 +71,8 @@ def nueva(comunidad_safe_oid):
             modelo=form.modelo.data or '',
             estado=form.estado.data
         )
-        srp.save(bat)
+        db.session.add(bat)
+        db.session.commit()
         flash_exito('Batería registrada correctamente.')
         return redirect(url_for('baterias.detalle_comunidad', comunidad_safe_oid=comunidad_safe_oid))
     return render_template('baterias/form.html', form=form,
@@ -86,17 +83,16 @@ def nueva(comunidad_safe_oid):
 @baterias_bp.route('/<safe_oid>/editar', methods=['GET', 'POST'])
 @login_required
 def editar(safe_oid):
-    srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         abort(404)
-    bat = srp.load(oid)
+    bat = db.session.get(Bateria, oid)
     if not bat:
         abort(404)
-    com_oid = OID.from_text(bat.comunidad_oid)
+    com_oid = bat.comunidad_oid
     _comprobar_superadmin()
-    com = srp.load(com_oid)
+    com = db.session.get(Comunidad, com_oid)
     comunidad_safe_oid = oid_to_safe(com_oid)
 
     form = BateriaForm(obj=bat)
@@ -114,7 +110,7 @@ def editar(safe_oid):
         bat.fabricante = form.fabricante.data or ''
         bat.modelo = form.modelo.data or ''
         bat.estado = form.estado.data
-        srp.save(bat)
+        db.session.commit()
         flash_exito('Batería actualizada.')
         return redirect(url_for('baterias.detalle_comunidad', comunidad_safe_oid=comunidad_safe_oid))
     return render_template('baterias/form.html', form=form,
@@ -126,20 +122,19 @@ def editar(safe_oid):
 @login_required
 def cambiar_estado(safe_oid):
     """Cambia el estado de la batería. Notifica a la comunidad si pasa a mantenimiento."""
-    srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         if is_xhr():
             return jsonify({'success': False, 'error': 'OID inválida'}), 404
         abort(404)
-    bat = srp.load(oid)
+    bat = db.session.get(Bateria, oid)
     if not bat:
         if is_xhr():
             return jsonify({'success': False, 'error': 'No encontrada'}), 404
         abort(404)
 
-    com_oid = OID.from_text(bat.comunidad_oid)
+    com_oid = bat.comunidad_oid
     _comprobar_superadmin()
 
     nuevo_estado = request.form.get('estado', bat.estado)
@@ -152,12 +147,12 @@ def cambiar_estado(safe_oid):
 
     estado_anterior = bat.estado
     bat.estado = nuevo_estado
-    srp.save(bat)
+    db.session.commit()
 
     # Notificar si pasa a mantenimiento o avería
     if nuevo_estado in ('mantenimiento', 'averiada') and estado_anterior != nuevo_estado:
         notificar_a_comunidad(
-            srp, com_oid,
+            com_oid,
             tipo='bateria_mantenimiento',
             titulo=f'Batería en {nuevo_estado}',
             mensaje=f'La batería de la comunidad ha cambiado a estado: {nuevo_estado}.',
@@ -177,24 +172,24 @@ def cambiar_estado(safe_oid):
 @baterias_bp.route('/<safe_oid>/eliminar', methods=['POST'])
 @login_required
 def eliminar(safe_oid):
-    srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         if is_xhr():
             return jsonify({'success': False, 'error': 'OID inválida'}), 404
         abort(404)
-    bat = srp.load(oid)
+    bat = db.session.get(Bateria, oid)
     if not bat:
         if is_xhr():
             return jsonify({'success': False, 'error': 'No encontrada'}), 404
         abort(404)
 
-    com_oid = OID.from_text(bat.comunidad_oid)
+    com_oid = bat.comunidad_oid
     _comprobar_superadmin()
     comunidad_safe_oid = oid_to_safe(com_oid)
 
-    srp.delete(oid)
+    db.session.delete(bat)
+    db.session.commit()
     flash_exito('Batería eliminada.')
     if is_xhr():
         return jsonify({'success': True, 'redirect': url_for('comunidades.detalle', safe_oid=comunidad_safe_oid)})

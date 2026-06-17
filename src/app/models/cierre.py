@@ -1,8 +1,10 @@
 """Modelo de CierreMensual de una vivienda."""
 from datetime import datetime
 
+from app.extensions import db
 
-class CierreMensual:
+
+class CierreMensual(db.Model):
     """Cierre energético mensual de una vivienda.
 
     Contiene los datos de consumo, generación y ahorro de un mes concreto.
@@ -10,12 +12,32 @@ class CierreMensual:
     El par (vivienda_oid, mes) debe ser único.
     """
 
+    __tablename__ = 'cierres'
+    __table_args__ = (
+        db.UniqueConstraint('vivienda_oid', 'mes', name='uq_cierre_vivienda_mes'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    vivienda_oid = db.Column(db.Integer, db.ForeignKey('viviendas.id'),
+                             nullable=False, index=True)
+    mes = db.Column(db.String(7), nullable=False)  # formato 'YYYY-MM'
+    consumo_total_kwh = db.Column(db.Float, default=0.0)
+    autoconsumo_directo_kwh = db.Column(db.Float, default=0.0)
+    energia_de_bateria_kwh = db.Column(db.Float, default=0.0)
+    vertido_a_red_kwh = db.Column(db.Float, default=0.0)
+    ahorro_eur = db.Column(db.Float, default=0.0)
+    factura_escenario_base_eur = db.Column(db.Float, default=0.0)
+    factura_escenario_real_eur = db.Column(db.Float, default=0.0)
+    porcentaje_ahorro_global = db.Column(db.Float, default=0.0)
+    coeficiente_reparto_aplicado = db.Column(db.Float, default=0.0)
+    fecha_creacion = db.Column(db.String(40))
+
     def __init__(self, vivienda_oid, mes, consumo_total_kwh=0.0,
                  autoconsumo_directo_kwh=0.0, energia_de_bateria_kwh=0.0,
                  vertido_a_red_kwh=0.0, ahorro_eur=0.0,
                  factura_escenario_base_eur=0.0, factura_escenario_real_eur=0.0,
                  porcentaje_ahorro_global=0.0, coeficiente_reparto_aplicado=0.0):
-        self.vivienda_oid = str(vivienda_oid)
+        self.vivienda_oid = int(vivienda_oid)
         self.mes = mes  # formato 'YYYY-MM'
         self.consumo_total_kwh = float(consumo_total_kwh)
         self.autoconsumo_directo_kwh = float(autoconsumo_directo_kwh)
@@ -27,6 +49,10 @@ class CierreMensual:
         self.porcentaje_ahorro_global = float(porcentaje_ahorro_global)
         self.coeficiente_reparto_aplicado = float(coeficiente_reparto_aplicado)
         self.fecha_creacion = datetime.now().isoformat()
+
+    @property
+    def __oid__(self):
+        return self.id
 
     @property
     def energia_de_red_kwh(self) -> float:

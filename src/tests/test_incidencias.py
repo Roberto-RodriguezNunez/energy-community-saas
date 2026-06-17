@@ -114,7 +114,7 @@ class TestResponderIncidencia:
             'resp-estado': 'cerrada',
         }, follow_redirects=True)
         assert resp.status_code == 200
-        inc = srp.load(incidencia.__oid__)
+        inc = srp.load(Incidencia, incidencia.__oid__)
         assert inc.estado == 'cerrada'
         assert inc.fecha_cierre is not None
 
@@ -131,7 +131,7 @@ class TestResponderIncidencia:
             'resp-respuesta': 'Reabierta',
             'resp-estado': 'abierta',
         })
-        inc = srp.load(incidencia.__oid__)
+        inc = srp.load(Incidencia, incidencia.__oid__)
         assert inc.estado == 'abierta'
         assert inc.fecha_cierre is None
 

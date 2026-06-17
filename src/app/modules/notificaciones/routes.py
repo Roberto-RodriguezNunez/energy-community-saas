@@ -1,7 +1,8 @@
 """Rutas de Notificaciones."""
-from flask import render_template, redirect, url_for, request, abort, jsonify, current_app
+from flask import render_template, redirect, url_for, request, abort, jsonify
 from flask_login import login_required, current_user
 
+from app.extensions import db
 from app.modules.notificaciones import notificaciones_bp
 from app.modules.notificaciones.forms import NotificacionForm
 from app.models.notificacion import Notificacion
@@ -13,35 +14,31 @@ from app.decorators import superadmin_required
 @notificaciones_bp.route('/')
 @login_required
 def lista():
-    srp = current_app.sirope
-    usr_str = str(current_user.__oid__)
-    notificaciones = sorted(
-        [n for n in srp.load_all(Notificacion) if str(n.usuario_oid) == usr_str],
-        key=lambda n: n.fecha, reverse=True
-    )
+    notificaciones = Notificacion.query.filter_by(
+        usuario_oid=current_user.id
+    ).order_by(Notificacion.fecha.desc()).all()
     return render_template('notificaciones/lista.html', notificaciones=notificaciones)
 
 
 @notificaciones_bp.route('/<safe_oid>/leer', methods=['POST'])
 @login_required
 def marcar_leida(safe_oid):
-    srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         if is_xhr():
             return jsonify({'success': False, 'error': 'OID inválida'}), 404
         abort(404)
-    notif = srp.load(oid)
+    notif = db.session.get(Notificacion, oid)
     if not notif:
         if is_xhr():
             return jsonify({'success': False, 'error': 'No encontrada'}), 404
         abort(404)
-    if str(notif.usuario_oid) != str(current_user.__oid__):
+    if notif.usuario_oid != current_user.id:
         abort(403)
 
     notif.marcar_leida()
-    srp.save(notif)
+    db.session.commit()
 
     if is_xhr():
         return jsonify({'success': True})
@@ -51,12 +48,10 @@ def marcar_leida(safe_oid):
 @notificaciones_bp.route('/leer-todas', methods=['POST'])
 @login_required
 def marcar_todas_leidas():
-    srp = current_app.sirope
-    usr_str = str(current_user.__oid__)
-    for n in srp.load_all(Notificacion):
-        if str(n.usuario_oid) == usr_str and not n.leida:
-            n.marcar_leida()
-            srp.save(n)
+    Notificacion.query.filter_by(
+        usuario_oid=current_user.id, leida=False
+    ).update({'leida': True})
+    db.session.commit()
     flash_exito('Todas las notificaciones marcadas como leídas.')
     if is_xhr():
         return jsonify({'success': True})
@@ -66,22 +61,22 @@ def marcar_todas_leidas():
 @notificaciones_bp.route('/<safe_oid>/eliminar', methods=['POST'])
 @login_required
 def eliminar(safe_oid):
-    srp = current_app.sirope
     try:
         oid = oid_from_safe(safe_oid)
     except Exception:
         if is_xhr():
             return jsonify({'success': False, 'error': 'OID inválida'}), 404
         abort(404)
-    notif = srp.load(oid)
+    notif = db.session.get(Notificacion, oid)
     if not notif:
         if is_xhr():
             return jsonify({'success': False, 'error': 'No encontrada'}), 404
         abort(404)
-    if str(notif.usuario_oid) != str(current_user.__oid__) and not current_user.es_superadmin:
+    if notif.usuario_oid != current_user.id and not current_user.es_superadmin:
         abort(403)
 
-    srp.delete(oid)
+    db.session.delete(notif)
+    db.session.commit()
     flash_exito('Notificación eliminada.')
     if is_xhr():
         return jsonify({'success': True})
@@ -92,11 +87,10 @@ def eliminar(safe_oid):
 @login_required
 @superadmin_required
 def nueva():
-    srp = current_app.sirope
     form = NotificacionForm()
 
     # Construir opciones de destinatario
-    usuarios = list(srp.load_all(Usuario))
+    usuarios = Usuario.query.all()
     opciones = [('__todos__', 'Todos los usuarios')]
     for u in sorted(usuarios, key=lambda u: u.nombre):
         opciones.append((oid_to_safe(u.__oid__), f'{u.nombre} ({u.email})'))
@@ -109,7 +103,7 @@ def nueva():
 
         if dest == '__todos__':
             for u in usuarios:
-                crear_notificacion(srp, u.__oid__, 'general', titulo, mensaje)
+                crear_notificacion(u.id, 'general', titulo, mensaje)
             flash_exito(f'Notificación enviada a {len(usuarios)} usuarios.')
         else:
             try:
@@ -117,8 +111,8 @@ def nueva():
             except Exception:
                 flash_error('Usuario no válido.')
                 return render_template('notificaciones/form.html', form=form)
-            crear_notificacion(srp, usr_oid, 'general', titulo, mensaje)
-            usr = srp.load(usr_oid)
+            crear_notificacion(usr_oid, 'general', titulo, mensaje)
+            usr = db.session.get(Usuario, usr_oid)
             flash_exito(f'Notificación enviada a {usr.nombre if usr else "usuario"}.')
 
         return redirect(url_for('notificaciones.lista'))

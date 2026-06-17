@@ -1,10 +1,16 @@
 services:
-  redis:
-    image: redis:7-alpine
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: energycomm
+      POSTGRES_PASSWORD: energycomm
+      POSTGRES_DB: energycomm
     ports:
-      - "6379:6379"
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U energycomm"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -16,9 +22,12 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_HOST=redis
+      - DATABASE_URL=postgresql://energycomm:energycomm@postgres:5432/energycomm
     depends_on:
-      redis:
+      postgres:
         condition: service_healthy
     volumes:
       - .:/app
+
+volumes:
+  pgdata:

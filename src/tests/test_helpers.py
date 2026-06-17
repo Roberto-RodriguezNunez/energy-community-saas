@@ -30,7 +30,7 @@ class TestRecalcularCoeficientes:
     def test_una_vivienda(self, app, srp, comunidad):
         v = Vivienda(comunidad.__oid__, 'V1', potencia_contratada_kw=5.0, coeficiente_reparto=0.0)
         srp.save(v)
-        recalcular_coeficientes(srp, comunidad.__oid__)
+        recalcular_coeficientes(comunidad.__oid__)
         v = list(srp.load_all(Vivienda))[0]
         assert abs(v.coeficiente_reparto - 1.0) < 0.001
 
@@ -38,7 +38,7 @@ class TestRecalcularCoeficientes:
         for i in range(4):
             srp.save(Vivienda(comunidad.__oid__, f'V{i}',
                               potencia_contratada_kw=3.0, coeficiente_reparto=0.0))
-        recalcular_coeficientes(srp, comunidad.__oid__)
+        recalcular_coeficientes(comunidad.__oid__)
         vivs = list(srp.load_all(Vivienda))
         for v in vivs:
             assert abs(v.coeficiente_reparto - 0.25) < 0.001
@@ -49,7 +49,7 @@ class TestRecalcularCoeficientes:
                           potencia_contratada_kw=6.0, coeficiente_reparto=0.0))
         srp.save(Vivienda(comunidad.__oid__, 'Pequeña',
                           potencia_contratada_kw=2.0, coeficiente_reparto=0.0))
-        recalcular_coeficientes(srp, comunidad.__oid__)
+        recalcular_coeficientes(comunidad.__oid__)
         vivs = list(srp.load_all(Vivienda))
         total = sum(v.coeficiente_reparto for v in vivs)
         assert abs(total - 1.0) < 0.001
@@ -58,14 +58,14 @@ class TestRecalcularCoeficientes:
 
     def test_comunidad_vacia(self, app, srp, comunidad):
         """No debe fallar con comunidad sin viviendas."""
-        recalcular_coeficientes(srp, comunidad.__oid__)  # no crash
+        recalcular_coeficientes(comunidad.__oid__)  # no crash
 
 
 class TestPuedeBorrarUsuario:
     def test_puede_borrar_sin_accesos(self, app, srp):
         u = Usuario('Test', 'test@x.com', 'pass12345', 'normal')
         srp.save(u)
-        puede, motivo = puede_borrar_usuario(srp, u.__oid__)
+        puede, motivo = puede_borrar_usuario(u.__oid__)
         assert puede is True
 
     def test_no_puede_borrar_unico_titular(self, app, srp, comunidad):
@@ -75,7 +75,7 @@ class TestPuedeBorrarUsuario:
         srp.save(v)
         a = AccesoVivienda(u.__oid__, v.__oid__, 'titular')
         srp.save(a)
-        puede, motivo = puede_borrar_usuario(srp, u.__oid__)
+        puede, motivo = puede_borrar_usuario(u.__oid__)
         assert puede is False
         assert 'titular' in motivo.lower()
 
@@ -88,7 +88,7 @@ class TestPuedeBorrarUsuario:
         srp.save(v)
         srp.save(AccesoVivienda(u1.__oid__, v.__oid__, 'titular'))
         srp.save(AccesoVivienda(u2.__oid__, v.__oid__, 'titular'))
-        puede, _ = puede_borrar_usuario(srp, u1.__oid__)
+        puede, _ = puede_borrar_usuario(u1.__oid__)
         assert puede is True
 
 
@@ -99,7 +99,7 @@ class TestCascadeDelete:
         u = Usuario('U', 'u@x.com', 'pass12345', 'normal')
         srp.save(u)
         srp.save(AccesoVivienda(u.__oid__, v.__oid__, 'titular'))
-        cascade_delete_vivienda(srp, v.__oid__)
+        cascade_delete_vivienda(v.__oid__)
         assert srp.num_objs(Vivienda) == 0
         assert srp.num_objs(AccesoVivienda) == 0
 
@@ -111,7 +111,7 @@ class TestCascadeDelete:
         u = Usuario('U', 'u@x.com', 'pass12345', 'normal')
         srp.save(u)
         srp.save(AccesoVivienda(u.__oid__, v.__oid__, 'titular'))
-        cascade_delete_comunidad(srp, c.__oid__)
+        cascade_delete_comunidad(c.__oid__)
         assert srp.num_objs(Comunidad) == 0
         assert srp.num_objs(Vivienda) == 0
         assert srp.num_objs(AccesoVivienda) == 0
@@ -119,7 +119,7 @@ class TestCascadeDelete:
 
 class TestUsuarioTieneAcceso:
     def test_tiene_acceso(self, app, srp, usuario, vivienda, acceso):
-        assert usuario_tiene_acceso(srp, usuario.__oid__, vivienda.__oid__) is True
+        assert usuario_tiene_acceso(usuario.__oid__, vivienda.__oid__) is True
 
     def test_no_tiene_acceso(self, app, srp, usuario, vivienda):
-        assert usuario_tiene_acceso(srp, usuario.__oid__, vivienda.__oid__) is False
+        assert usuario_tiene_acceso(usuario.__oid__, vivienda.__oid__) is False

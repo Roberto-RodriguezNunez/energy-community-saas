@@ -1,9 +1,9 @@
 """Factory de la aplicación EnergyComm."""
-import sirope
-import redis
 from flask import Flask, render_template
 from flask_login import LoginManager, current_user
 from flask_wtf import CSRFProtect
+
+from app.extensions import db
 
 login_manager = LoginManager()
 csrf = CSRFProtect()
@@ -16,13 +16,8 @@ def create_app(config_name=None):
     from config import get_config
     app.config.from_object(get_config(config_name))
 
-    # Inicializar Sirope (persistencia sobre Redis)
-    redis_client = redis.Redis(
-        host=app.config['REDIS_HOST'],
-        port=app.config['REDIS_PORT'],
-        db=app.config['REDIS_DB']
-    )
-    app.sirope = sirope.Sirope(redis_obj=redis_client)
+    # Inicializar la base de datos (SQLAlchemy / PostgreSQL)
+    db.init_app(app)
 
     # Extensiones
     login_manager.init_app(app)
@@ -47,10 +42,8 @@ def create_app(config_name=None):
     @login_manager.user_loader
     def load_user(user_id):
         from app.models.usuario import Usuario
-        from app.helpers import oid_from_safe
         try:
-            oid = oid_from_safe(user_id)
-            return app.sirope.load(oid)
+            return db.session.get(Usuario, int(user_id))
         except Exception:
             return None
 
@@ -61,11 +54,9 @@ def create_app(config_name=None):
             if not current_user.is_authenticated:
                 return 0
             from app.models.notificacion import Notificacion
-            usr_str = str(current_user.__oid__)
-            return sum(
-                1 for n in app.sirope.load_all(Notificacion)
-                if str(n.usuario_oid) == usr_str and not n.leida
-            )
+            return Notificacion.query.filter_by(
+                usuario_oid=current_user.id, leida=False
+            ).count()
 
         def mi_comunidad_nav():
             """Retorna lista de {safe_oid, nombre} de las comunidades del usuario, o []."""
@@ -73,29 +64,23 @@ def create_app(config_name=None):
                 return []
             from app.models.acceso import AccesoVivienda
             from app.models.vivienda import Vivienda
+            from app.models.comunidad import Comunidad
             from app.helpers import oid_to_safe
-            from sirope import OID
             try:
-                usr_str = str(current_user.__oid__)
-                accesos = [a for a in app.sirope.load_all(AccesoVivienda)
-                           if str(a.usuario_oid) == usr_str]
+                accesos = AccesoVivienda.query.filter_by(
+                    usuario_oid=current_user.id
+                ).all()
                 vistas = {}
                 for a in accesos:
-                    try:
-                        viv = app.sirope.load(OID.from_text(a.vivienda_oid))
-                        if not viv:
-                            continue
-                        com_str = str(viv.comunidad_oid)
-                        if com_str in vistas:
-                            continue
-                        com = app.sirope.load(OID.from_text(com_str))
-                        if com:
-                            vistas[com_str] = {
-                                'safe_oid': oid_to_safe(com.__oid__),
-                                'nombre': com.nombre,
-                            }
-                    except Exception:
+                    viv = db.session.get(Vivienda, a.vivienda_oid)
+                    if not viv or viv.comunidad_oid in vistas:
                         continue
+                    com = db.session.get(Comunidad, viv.comunidad_oid)
+                    if com:
+                        vistas[viv.comunidad_oid] = {
+                            'safe_oid': oid_to_safe(com.__oid__),
+                            'nombre': com.nombre,
+                        }
                 return list(vistas.values())
             except Exception:
                 return []
@@ -144,5 +129,11 @@ def create_app(config_name=None):
     @app.errorhandler(500)
     def error_interno(e):
         return render_template('errors/500.html'), 500
+
+    # Crear el esquema si no existe (suficiente para el alcance del TFG).
+    # Importar los modelos garantiza que todas las tablas estén registradas.
+    import app.models as _models  # noqa: F401  (registra los modelos en el metadata)
+    with app.app_context():
+        db.create_all()
 
     return app
