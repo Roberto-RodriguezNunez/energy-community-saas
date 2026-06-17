@@ -1,4 +1,4 @@
-"""Factory de la aplicación EnergyComm."""
+"""Factory de la aplicación LeaLink."""
 from flask import Flask, render_template
 from flask_login import LoginManager, current_user
 from flask_wtf import CSRFProtect

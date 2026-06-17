@@ -1,4 +1,4 @@
-"""Decoradores de autorización para EnergyComm."""
+"""Decoradores de autorización para LeaLink."""
 from functools import wraps
 from flask import abort
 from flask_login import current_user

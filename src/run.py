@@ -1,4 +1,4 @@
-"""Punto de entrada de la aplicación EnergyComm."""
+"""Punto de entrada de la aplicación LeaLink."""
 from app import create_app
 
 app = create_app()

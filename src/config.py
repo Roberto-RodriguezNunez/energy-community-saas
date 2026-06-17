@@ -1,4 +1,4 @@
-"""Configuración de la aplicación EnergyComm."""
+"""Configuración de la aplicación LeaLink."""
 import os
 from dotenv import load_dotenv
 
@@ -20,7 +20,7 @@ class BaseConfig:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
     # Base de datos: PostgreSQL en dev/prod (DATABASE_URL); SQLite por defecto en local.
     SQLALCHEMY_DATABASE_URI = _normalizar_db_url(
-        os.environ.get('DATABASE_URL', 'sqlite:///energycomm.db')
+        os.environ.get('DATABASE_URL', 'sqlite:///lealink.db')
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     WTF_CSRF_ENABLED = True

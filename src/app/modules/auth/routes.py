@@ -49,7 +49,7 @@ def registro():
         db.session.add(usuario)
         db.session.commit()
         login_user(usuario)
-        flash_exito('¡Cuenta creada correctamente! Bienvenido a EnergyComm.')
+        flash_exito('¡Cuenta creada correctamente! Bienvenido a LeaLink.')
         return redirect(url_for('main.index'))
     return render_template('auth/registro.html', form=form)
 

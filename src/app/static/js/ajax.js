@@ -1,5 +1,5 @@
 /**
- * EnergyComm — Progressive Enhancement AJAX
+ * LeaLink — Progressive Enhancement AJAX
  * Intercepta formularios con data-ajax-action y los envía sin recargar página.
  * Con JS desactivado, el formulario funciona normalmente (POST → redirect).
  */

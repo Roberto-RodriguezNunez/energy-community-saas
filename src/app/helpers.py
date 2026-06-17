@@ -1,5 +1,5 @@
 """
-Utilidades centrales de EnergyComm.
+Utilidades centrales de LeaLink.
 Importado por todos los blueprints — mantener sin imports circulares.
 """
 from flask import flash, request as _request

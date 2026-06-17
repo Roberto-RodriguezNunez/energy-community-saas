@@ -1,4 +1,4 @@
-# Modelos de EnergyComm
+# Modelos de LeaLink
 from app.extensions import db
 from app.models.comunidad import Comunidad
 from app.models.vivienda import Vivienda

@@ -7,7 +7,7 @@ from app.extensions import db
 
 
 class Usuario(UserMixin, db.Model):
-    """Usuario de EnergyComm.
+    """Usuario de LeaLink.
 
     Puede ser superadmin del SaaS o usuario normal.
     Flask-Login usa get_id() para serializar la sesión.

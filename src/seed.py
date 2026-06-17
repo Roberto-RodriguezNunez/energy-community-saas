@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Seed de datos de ejemplo para EnergyComm.
+Seed de datos de ejemplo para LeaLink.
 Idempotente: no hace nada si ya hay usuarios en la base de datos.
 
 Genera:
@@ -36,7 +36,7 @@ MESES = ['2024-10', '2024-11', '2024-12']
 # Nombres de usuarios con correos derivados del nombre
 USUARIOS_DATA = [
     # (nombre, email, password)
-    ('Roberto Rodríguez', 'roberto@energycomm.es', 'roberto1234'),   # superadmin
+    ('Roberto Rodríguez', 'roberto@lealink.es', 'roberto1234'),   # superadmin
     # Admins de comunidad
     ('Carmen Vidal Lago',     'carmen.vidal@vecinos.es',     'carmen1234'),
     ('Marcos Iglesias Otero', 'marcos.iglesias@vecinos.es',  'marcos1234'),
@@ -461,7 +461,7 @@ def seed():
 ║  Accesos:    {n_accesos:3}   Cierres:   {n_cierres:3}         ║
 ╠══════════════════════════════════════════════════════╣
 ║  Credenciales:                                       ║
-║  roberto@energycomm.es  /  roberto1234  (superadmin) ║
+║  roberto@lealink.es     /  roberto1234  (superadmin) ║
 ║  carmen.vidal@vecinos.es / carmen1234   (admin Vigo) ║
 ║  marcos.iglesias@vecinos.es / marcos1234 (admin Stgo)║
 ║  ana.garcia@vecinos.es  /  ana1234      (vecina)     ║
